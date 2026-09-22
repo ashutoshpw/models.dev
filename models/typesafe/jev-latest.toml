@@ -22,3 +22,18 @@ output = 0
 [modalities]
 input = ["text"]
 output = ["text"]
+
+[capabilities.tasks.evaluation]
+status = "supported"
+evidence = ["https://docs.typesafe.ai/primitives/score", "https://docs.typesafe.ai/api"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://docs.typesafe.ai/api"]
+verified_at = "2026-09-22"
+
+[capabilities.features.structured_output]
+status = "supported"
+evidence = ["https://docs.typesafe.ai/api"]
+verified_at = "2026-09-22"

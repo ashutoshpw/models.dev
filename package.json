@@ -18,6 +18,7 @@
     "test": "bun test",
     "validate": "bun ./packages/core/script/validate.ts",
     "coverage:capabilities": "bun ./packages/core/script/capability-coverage.ts",
+    "check:fork": "bun ./scripts/check-fork.ts --tree",
     "compare:migrations": "bun ./packages/core/script/compare-model-migrations.ts",
     "anthropic:sync": "bun ./packages/core/script/sync-models.ts anthropic",
     "baseten:sync": "bun ./packages/core/script/sync-models.ts baseten",

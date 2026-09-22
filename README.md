@@ -33,6 +33,19 @@ curl "https://models.dev/api.json?type=all"
 The currently supported model type is `decision`. The `type` parameter is also
 available on `models.json`, `catalog.json`, and `model-schema.json`.
 
+Filter by capabilities with `task`, `feature`, `input`, `operation`, and
+`transport`. Values within one parameter are OR-ed; different parameters are
+AND-ed; only `supported` capabilities match:
+
+```bash
+curl "https://models.dev/models.json?task=embeddings"
+curl "https://models.dev/api.json?task=text_generation&feature=tool_calling&input=image"
+curl "https://models.dev/api.json?transport=websocket&operation=realtime"
+```
+
+See the [capability contract](docs/capabilities/contract.md#filtering) for the
+full parameter list and semantics.
+
 Use the **Model ID** field to do a lookup on any model; it's the identifier used by [AI SDK](https://ai-sdk.dev/).
 
 Provider-agnostic model metadata is available separately:

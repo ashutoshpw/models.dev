@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  filterCatalogByCapabilities,
   filterCatalogByModelType,
+  filterModelsByCapabilities,
+  filterProvidersByCapabilities,
   generateCatalog,
+  hasCapabilityFilter,
+  InvalidCapabilityFilterError,
   InvalidModelTypeError,
+  matchesCapabilityFilter,
+  parseCapabilityFilter,
   parseModelTypes,
 } from "../src/index.js";
 import type { ModelMetadata, Provider } from "../src/index.js";
@@ -100,6 +107,129 @@ describe("model type filtering", () => {
         Object.values(provider.models),
       ).length,
     ).toBe(jevModels.length);
+  });
+});
+
+describe("capability filtering", () => {
+  const embedding = {
+    capabilities: { tasks: { embeddings: { status: "supported" } } },
+  };
+  const reranker = {
+    capabilities: {
+      tasks: { reranking: { status: "supported" } },
+      inputs: { text: { status: "supported" } },
+    },
+  };
+  const chatVision = {
+    capabilities: {
+      tasks: { text_generation: { status: "supported" } },
+      features: { tool_calling: { status: "supported" } },
+      inputs: { image: { status: "supported" } },
+      endpoints: {
+        transports: { sse: { status: "supported" } },
+        operations: { chat: { status: "supported" } },
+      },
+    },
+  };
+  const downgraded = {
+    capabilities: {
+      tasks: { text_generation: { status: "unknown" } },
+      features: { tool_calling: { status: "unsupported" } },
+    },
+  };
+  const models = { embedding, reranker, chatVision, downgraded };
+
+  test("parses comma-separated values and rejects unknown slugs", () => {
+    const filter = parseCapabilityFilter(
+      new URLSearchParams("task=embeddings,reranking&feature=tool_calling"),
+    );
+
+    expect(filter.tasks).toEqual(["embeddings", "reranking"]);
+    expect(filter.features).toEqual(["tool_calling"]);
+    expect(hasCapabilityFilter(filter)).toBe(true);
+    expect(hasCapabilityFilter(parseCapabilityFilter(new URLSearchParams()))).toBe(
+      false,
+    );
+
+    expect(() =>
+      parseCapabilityFilter(new URLSearchParams("task=bogus")),
+    ).toThrow(InvalidCapabilityFilterError);
+  });
+
+  test("ORs values within one axis and ANDs across axes", () => {
+    const either = filterModelsByCapabilities(models, {
+      tasks: ["embeddings", "reranking"],
+    });
+    expect(Object.keys(either)).toEqual(["embedding", "reranker"]);
+
+    const both = filterModelsByCapabilities(models, {
+      tasks: ["text_generation"],
+      features: ["tool_calling"],
+    });
+    expect(Object.keys(both)).toEqual(["chatVision"]);
+  });
+
+  test("only supported capabilities match", () => {
+    expect(
+      matchesCapabilityFilter(downgraded, { tasks: ["text_generation"] }),
+    ).toBe(false);
+    expect(
+      matchesCapabilityFilter(downgraded, { features: ["tool_calling"] }),
+    ).toBe(false);
+    expect(
+      matchesCapabilityFilter(chatVision, { transports: ["sse"] }),
+    ).toBe(true);
+    expect(
+      matchesCapabilityFilter(chatVision, { transports: ["websocket"] }),
+    ).toBe(false);
+    expect(
+      matchesCapabilityFilter(chatVision, { operations: ["chat"] }),
+    ).toBe(true);
+  });
+
+  test("filters providers and drops providers with no surviving models", () => {
+    const providers = {
+      mixed: { models: { embedding, chatVision } },
+      embeddingsOnly: { models: { embedding } },
+    };
+    const filtered = filterProvidersByCapabilities(providers, {
+      tasks: ["text_generation"],
+    });
+
+    expect(Object.keys(filtered)).toEqual(["mixed"]);
+    expect(Object.keys(filtered.mixed!.models)).toEqual(["chatVision"]);
+  });
+
+  test("preserves catalog keys and prunes aliases for filtered targets", () => {
+    const catalog = {
+      schema_version: 1,
+      generated_at: "2026-01-01T00:00:00.000Z",
+      models,
+      providers: {
+        example: { models: { embedding, chatVision } },
+      },
+      aliases: {
+        "alias/embedding": "embedding",
+        "example/chat": "example/chatVision",
+      },
+    };
+
+    const filtered = filterCatalogByCapabilities(catalog, {
+      tasks: ["text_generation"],
+    });
+
+    expect(filtered.schema_version).toBe(1);
+    expect(Object.keys(filtered.models)).toEqual(["chatVision"]);
+    expect(filtered.aliases as Record<string, string>).toEqual({
+      "example/chat": "example/chatVision",
+    });
+  });
+
+  test("returns the input unchanged for an empty filter", () => {
+    expect(filterModelsByCapabilities(models, {})).toBe(models);
+    expect(filterProvidersByCapabilities({ example: { models } }, {})).toEqual({
+      example: { models },
+    });
   });
 });
 

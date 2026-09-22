@@ -1,7 +1,22 @@
 import { z } from "zod";
 
+import {
+  CapabilityFeatureValues,
+  CapabilityInputValues,
+  CapabilityTaskValues,
+  INPUT_MODALITIES,
+  OPERATION_TASKS,
+  OperationValues,
+  TransportValues,
+} from "./capabilities";
+import type {
+  CapabilityFeatureValue,
+  OperationValue,
+} from "./capabilities";
 import { ModelFamily } from "./family";
 import { MODEL_TYPES } from "./filter";
+
+export * from "./capabilities.js";
 
 type JsonValue =
   | string
@@ -185,52 +200,6 @@ const UrlString = z.string().url("Must be a valid URL");
  */
 export const CapabilityStatus = z.enum(["supported", "unsupported", "unknown"]);
 
-export const CapabilityTaskValues = [
-  "text_generation",
-  "image_generation",
-  "video_generation",
-  "transcription",
-  "speech_synthesis",
-  "realtime_conversation",
-  "embeddings",
-  "reranking",
-  "evaluation",
-] as const;
-
-export const CapabilityInputValues = [
-  "text",
-  "image",
-  "audio",
-  "video",
-  "files",
-] as const;
-
-export const CapabilityFeatureValues = [
-  "reasoning",
-  "tool_calling",
-  "structured_output",
-  "web_search",
-  "implicit_prompt_caching",
-  "explicit_prompt_caching",
-] as const;
-
-export const TransportValues = ["http", "sse", "websocket"] as const;
-
-export const OperationValues = [
-  "chat",
-  "messages",
-  "responses",
-  "completions",
-  "embeddings",
-  "images",
-  "videos",
-  "transcriptions",
-  "speech",
-  "rerank",
-  "realtime",
-  "evaluate",
-] as const;
-
 export const CapabilityTask = z.enum(CapabilityTaskValues);
 export const CapabilityInput = z.enum(CapabilityInputValues);
 export const CapabilityFeature = z.enum(CapabilityFeatureValues);
@@ -238,27 +207,6 @@ export const Transport = z.enum(TransportValues);
 export const Operation = z.enum(OperationValues);
 
 export type CapabilityStatus = z.infer<typeof CapabilityStatus>;
-export type CapabilityTaskValue = (typeof CapabilityTaskValues)[number];
-export type CapabilityInputValue = (typeof CapabilityInputValues)[number];
-export type CapabilityFeatureValue = (typeof CapabilityFeatureValues)[number];
-export type TransportValue = (typeof TransportValues)[number];
-export type OperationValue = (typeof OperationValues)[number];
-
-/** Normative operation to task mapping, enforced by validation. */
-export const OPERATION_TASKS: Record<OperationValue, CapabilityTaskValue> = {
-  chat: "text_generation",
-  messages: "text_generation",
-  responses: "text_generation",
-  completions: "text_generation",
-  embeddings: "embeddings",
-  images: "image_generation",
-  videos: "video_generation",
-  transcriptions: "transcription",
-  speech: "speech_synthesis",
-  rerank: "reranking",
-  realtime: "realtime_conversation",
-  evaluate: "evaluation",
-};
 
 const VerificationDate = z
   .string()
@@ -377,13 +325,7 @@ interface CapabilityConsistencyInput {
   };
 }
 
-export const INPUT_MODALITIES: Array<[CapabilityInputValue, string]> = [
-  ["text", "text"],
-  ["image", "image"],
-  ["audio", "audio"],
-  ["video", "video"],
-  ["files", "pdf"],
-];
+
 
 const FEATURE_BOOLEANS: Array<[CapabilityFeatureValue, string]> = [
   ["reasoning", "reasoning"],

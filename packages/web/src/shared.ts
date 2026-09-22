@@ -91,7 +91,7 @@ export function capabilityStatusText(nodes: CapabilityNodes | undefined) {
   const supported: string[] = [];
   const unsupported: string[] = [];
   for (const [key, node] of Object.entries(nodes)) {
-    const label = key.replaceAll("_", " ");
+    const label = key.replace(/_/g, " ");
     if (node?.status === "supported") supported.push(label);
     if (node?.status === "unsupported") unsupported.push(`${label} (unsupported)`);
   }
@@ -104,7 +104,68 @@ export function capabilitySearchTokens(nodes: CapabilityNodes | undefined) {
   if (nodes === undefined) return [] as string[];
   return Object.entries(nodes)
     .filter(([, node]) => node?.status !== undefined)
-    .flatMap(([key]) => [key, key.replaceAll("_", " ")]);
+    .flatMap(([key]) => [key, key.replace(/_/g, " ")]);
+}
+
+export interface CapabilityModelLike {
+  capabilities?: {
+    tasks?: CapabilityNodes;
+    features?: CapabilityNodes;
+    inputs?: CapabilityNodes;
+    endpoints?: {
+      transports?: CapabilityNodes;
+      operations?: CapabilityNodes;
+    };
+  };
+}
+
+function filterTokens(nodes: CapabilityNodes | undefined, axis: string) {
+  if (nodes === undefined) return [] as string[];
+  return Object.entries(nodes)
+    .filter(([, node]) => node?.status === "supported")
+    .map(([key]) => `${axis}:${key}`);
+}
+
+/** `axis:value` tokens for supported capabilities, used by the filter bar. */
+export function capabilityFilterTokens(model: CapabilityModelLike) {
+  const capabilities = model.capabilities;
+  return [
+    ...filterTokens(capabilities?.tasks, "task"),
+    ...filterTokens(capabilities?.features, "feature"),
+    ...filterTokens(capabilities?.inputs, "input"),
+    ...filterTokens(capabilities?.endpoints?.transports, "transport"),
+    ...filterTokens(capabilities?.endpoints?.operations, "operation"),
+  ];
+}
+
+export function capabilityFilterAttribute(model: CapabilityModelLike) {
+  return capabilityFilterTokens(model).join(" ");
+}
+
+/**
+ * Matches `axis:value` row tokens against a selected-filter map: values within
+ * one axis are OR-ed, axes are AND-ed. Shared with the client filter UI.
+ */
+export function capabilitySelectionMatches(
+  tokens: Iterable<string>,
+  selected: Map<string, Set<string>>,
+) {
+  if (selected.size === 0) return true;
+  const tokenSet = new Set(tokens);
+
+  for (const [axis, values] of selected) {
+    if (values.size === 0) continue;
+    let matched = false;
+    for (const value of values) {
+      if (tokenSet.has(`${axis}:${value}`)) {
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return false;
+  }
+
+  return true;
 }
 
 export function sortDate(value?: string) {

@@ -1,6 +1,8 @@
 import { Context, Effect, Layer, Schema } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
-import type { Catalog, ModelMetadataMap, ModelType, ProviderMap } from "../types.js"
+import { applyQuery } from "../query.js"
+import type { QueryOptions } from "../query.js"
+import type { Catalog, ModelMetadataMap, ProviderMap } from "../types.js"
 
 /** The only error in the failure channel of client methods. Wraps the underlying `HttpClientError` as `cause`. */
 export class ModelsDevError extends Schema.TaggedErrorClass<ModelsDevError>()("ModelsDevError", {
@@ -14,10 +16,7 @@ export interface ClientOptions {
   readonly headers?: Record<string, string>
 }
 
-export interface RequestOptions {
-  /** Specialized model types to include. Omit for standard models; use `"all"` for the complete catalog. */
-  readonly modelTypes?: "all" | readonly ModelType[]
-}
+export interface RequestOptions extends QueryOptions {}
 
 /**
  * Creates a stateless models.dev client on top of the `HttpClient` service
@@ -32,13 +31,7 @@ export const make = (options?: ClientOptions) =>
     const base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/"
 
     const get = <A>(path: string, requestOptions?: RequestOptions): Effect.Effect<A, ModelsDevError> => {
-      const url = new URL(path, base)
-      const modelTypes = requestOptions?.modelTypes
-      if (modelTypes === "all") {
-        url.searchParams.set("type", "all")
-      } else if (modelTypes && modelTypes.length > 0) {
-        url.searchParams.set("type", modelTypes.join(","))
-      }
+      const url = applyQuery(new URL(path, base), requestOptions)
 
       return http
         .get(url, {

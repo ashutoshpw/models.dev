@@ -205,6 +205,18 @@ export interface ProviderCapabilities extends Capabilities {
   endpoints?: EndpointCapabilities
 }
 
+/**
+ * Capability requirements for catalog requests. Values within one axis are
+ * OR-ed; axes are AND-ed. Only resolved `supported` capabilities match.
+ */
+export interface CapabilityFilter {
+  tasks?: CapabilityTask[]
+  features?: CapabilityFeature[]
+  inputs?: CapabilityInput[]
+  operations?: Operation[]
+  transports?: Transport[]
+}
+
 /** A reported benchmark result. */
 export interface BenchmarkResult {
   name: string

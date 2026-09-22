@@ -51,6 +51,33 @@ test("catalog endpoints encode model type filters", async () => {
   ])
 })
 
+test("capability filters encode as sorted query params", async () => {
+  const { calls, fetch } = stub({})
+  const client = Models.make({ fetch })
+  await client.models({
+    capabilities: {
+      tasks: ["reranking", "embeddings"],
+      features: ["tool_calling"],
+      transports: ["websocket"],
+    },
+  })
+  expect(calls[0]?.url.href).toBe(
+    "https://models.dev/models.json?task=embeddings%2Creranking&feature=tool_calling&transport=websocket",
+  )
+})
+
+test("capability filters combine with model types", async () => {
+  const { calls, fetch } = stub({})
+  const client = Models.make({ fetch })
+  await client.providers({
+    modelTypes: "all",
+    capabilities: { tasks: ["text_generation"] },
+  })
+  expect(calls[0]?.url.href).toBe(
+    "https://models.dev/api.json?type=all&task=text_generation",
+  )
+})
+
 test("baseUrl with subpath is preserved, with or without trailing slash", async () => {
   const { calls, fetch } = stub({})
   await Models.make({ fetch, baseUrl: "https://example.com/mirror" }).providers()

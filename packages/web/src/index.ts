@@ -1,3 +1,5 @@
+import { capabilitySelectionMatches } from "./shared.js";
+
 type SortDirection = "asc" | "desc";
 
 interface SearchIndexItem {
@@ -761,3 +763,168 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   void copyValue(copy.button, copy.value);
 });
+
+//////////////////////////
+// Capability Filters
+//////////////////////////
+const CAPABILITY_FILTER_PARAMS = [
+  "task",
+  "feature",
+  "input",
+  "transport",
+  "operation",
+] as const;
+
+function initCapabilityFilters() {
+  const bars = document.querySelectorAll<HTMLElement>(
+    "[data-capability-filters]",
+  );
+
+  for (const bar of bars) {
+    const section = bar.closest<HTMLElement>(".table-section");
+    const table = section?.querySelector<HTMLTableElement>(
+      "table[data-enhanced-table]",
+    );
+    const tbody = table?.tBodies[0];
+    if (!section || !tbody) continue;
+
+    const rows = Array.from(tbody.rows).filter(
+      (row) => !row.classList.contains("empty-row"),
+    );
+    const countElement = section.querySelector<HTMLElement>(
+      ".section-heading span",
+    );
+    const originalCount = countElement?.textContent ?? "";
+    const checkboxes = Array.from(
+      bar.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    );
+    const statusElement = bar.querySelector<HTMLElement>(
+      "[data-capability-status]",
+    );
+    const clearButton = bar.querySelector<HTMLButtonElement>(
+      "[data-capability-clear]",
+    );
+
+    const selectedFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const selected = new Map<string, Set<string>>();
+      for (const axis of CAPABILITY_FILTER_PARAMS) {
+        const raw = params.get(axis);
+        if (raw === null || raw.trim() === "") continue;
+        const values = raw
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+        if (values.length > 0) selected.set(axis, new Set(values));
+      }
+      return selected;
+    };
+
+    const selectedFromCheckboxes = () => {
+      const selected = new Map<string, Set<string>>();
+      for (const checkbox of checkboxes) {
+        if (!checkbox.checked) continue;
+        const separator = checkbox.value.indexOf(":");
+        if (separator === -1) continue;
+        const axis = checkbox.value.slice(0, separator);
+        const value = checkbox.value.slice(separator + 1);
+        if (!selected.has(axis)) selected.set(axis, new Set());
+        selected.get(axis)!.add(value);
+      }
+      return selected;
+    };
+
+    const syncUrl = (selected: Map<string, Set<string>>) => {
+      const params = new URLSearchParams(window.location.search);
+      for (const axis of CAPABILITY_FILTER_PARAMS) {
+        const values = selected.get(axis);
+        if (values === undefined || values.size === 0) {
+          params.delete(axis);
+        } else {
+          params.set(axis, [...values].sort().join(","));
+        }
+      }
+      const query = params.toString();
+      const url = query
+        ? `${window.location.pathname}?${query}${window.location.hash}`
+        : `${window.location.pathname}${window.location.hash}`;
+      history.replaceState(null, "", url);
+    };
+
+    const applySelection = (
+      selected: Map<string, Set<string>>,
+      updateUrl: boolean,
+    ) => {
+      let visible = 0;
+      for (const row of rows) {
+        const tokens = (row.getAttribute("data-capabilities") ?? "")
+          .split(/\s+/)
+          .filter(Boolean);
+        const matches = capabilitySelectionMatches(tokens, selected);
+        row.hidden = !matches;
+        if (matches) visible++;
+      }
+
+      const filtered = selected.size > 0;
+      section.toggleAttribute("data-empty", visible === 0);
+      if (countElement) {
+        countElement.textContent = filtered
+          ? `${visible} of ${rows.length}`
+          : originalCount;
+      }
+      if (statusElement) {
+        statusElement.textContent = filtered
+          ? `${visible} of ${rows.length} shown`
+          : "";
+      }
+      if (clearButton) clearButton.hidden = !filtered;
+
+      for (const details of bar.querySelectorAll<HTMLDetailsElement>(
+        "details[data-capability-axis]",
+      )) {
+        const checked = details.querySelectorAll(
+          'input[type="checkbox"]:checked',
+        ).length;
+        const badge = details.querySelector<HTMLElement>(
+          "[data-capability-selected]",
+        );
+        if (badge) badge.textContent = checked > 0 ? String(checked) : "";
+      }
+
+      if (updateUrl) syncUrl(selected);
+    };
+
+    const setCheckboxes = (selected: Map<string, Set<string>>) => {
+      for (const checkbox of checkboxes) {
+        const separator = checkbox.value.indexOf(":");
+        if (separator === -1) continue;
+        const axis = checkbox.value.slice(0, separator);
+        const value = checkbox.value.slice(separator + 1);
+        checkbox.checked = selected.get(axis)?.has(value) ?? false;
+      }
+    };
+
+    for (const checkbox of checkboxes) {
+      checkbox.addEventListener("change", () => {
+        applySelection(selectedFromCheckboxes(), true);
+      });
+    }
+
+    clearButton?.addEventListener("click", () => {
+      for (const checkbox of checkboxes) checkbox.checked = false;
+      applySelection(new Map(), true);
+    });
+
+    window.addEventListener("popstate", () => {
+      const selected = selectedFromUrl();
+      setCheckboxes(selected);
+      applySelection(selected, false);
+    });
+
+    const selected = selectedFromUrl();
+    setCheckboxes(selected);
+    applySelection(selected, false);
+  }
+}
+
+initCapabilityFilters();

@@ -9,10 +9,16 @@ import {
   renderDocument,
 } from "./render";
 import {
+  filterCatalogByCapabilities,
   filterCatalogByModelType,
+  filterModelsByCapabilities,
   filterModelsByModelType,
+  filterProvidersByCapabilities,
   filterProvidersByModelType,
+  hasCapabilityFilter,
+  InvalidCapabilityFilterError,
   InvalidModelTypeError,
+  parseCapabilityFilter,
   parseModelTypes,
 } from "@models.dev/core";
 import path from "path";
@@ -121,35 +127,68 @@ Bun.serve({
 });
 
 function catalogResponse(req: Request, endpoint: "api" | "models" | "catalog") {
-  let filter;
+  const searchParams = new URL(req.url).searchParams;
+
+  let typeFilter;
   try {
-    filter = parseModelTypes(new URL(req.url).searchParams.get("type"));
+    typeFilter = parseModelTypes(searchParams.get("type"));
   } catch (error) {
     if (!(error instanceof InvalidModelTypeError)) throw error;
     return Response.json({ error: error.message }, { status: 400 });
   }
 
-  const value = endpoint === "api"
-    ? filterProvidersByModelType(Providers, filter)
-    : endpoint === "models"
-      ? filterModelsByModelType(Models, filter)
-      : filterCatalogByModelType(
-          {
-            schema_version: SchemaVersion,
-            generated_at: GeneratedAt,
-            models: Models,
-            providers: Providers,
-            aliases: Aliases,
-          },
-          filter,
-        );
+  let capabilityFilter;
+  try {
+    capabilityFilter = parseCapabilityFilter(searchParams);
+  } catch (error) {
+    if (!(error instanceof InvalidCapabilityFilterError)) throw error;
+    return Response.json(
+      { error: error.message, allowed: error.allowed },
+      { status: 400 },
+    );
+  }
+  const capabilityActive = hasCapabilityFilter(capabilityFilter);
 
-  return Response.json(value, {
+  let value: unknown = endpoint === "api"
+    ? Providers
+    : endpoint === "models"
+      ? Models
+      : {
+          schema_version: SchemaVersion,
+          generated_at: GeneratedAt,
+          models: Models,
+          providers: Providers,
+          aliases: Aliases,
+        };
+
+  if (capabilityActive) {
+    value = endpoint === "api"
+      ? filterProvidersByCapabilities(value as typeof Providers, capabilityFilter)
+      : endpoint === "models"
+        ? filterModelsByCapabilities(value as typeof Models, capabilityFilter)
+        : filterCatalogByCapabilities(value as CatalogValue, capabilityFilter);
+  }
+
+  const filtered = endpoint === "api"
+    ? filterProvidersByModelType(value as typeof Providers, typeFilter)
+    : endpoint === "models"
+      ? filterModelsByModelType(value as typeof Models, typeFilter)
+      : filterCatalogByModelType(value as CatalogValue, typeFilter);
+
+  return Response.json(filtered, {
     headers: {
       "Cache-Control": "public, max-age=3600",
     },
   });
 }
+
+type CatalogValue = {
+  schema_version: number;
+  generated_at?: string;
+  models: typeof Models;
+  providers: typeof Providers;
+  aliases: Record<string, string>;
+};
 
 const server = Bun.serve({
   development: true,

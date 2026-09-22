@@ -56,6 +56,20 @@ test("catalog endpoints encode model type filters", async () => {
   ])
 })
 
+test("catalog endpoints encode capability filters", async () => {
+  const { requests, layer } = stub({})
+  const program = Effect.gen(function* () {
+    const client = yield* Models.make()
+    yield* client.models({
+      capabilities: { tasks: ["embeddings", "reranking"], inputs: ["image"] },
+    })
+  })
+  await program.pipe(Effect.provide(layer), Effect.runPromise)
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://models.dev/models.json?task=embeddings%2Creranking&input=image",
+  ])
+})
+
 test("custom headers are sent", async () => {
   const { requests, layer } = stub({})
   const program = Effect.gen(function* () {

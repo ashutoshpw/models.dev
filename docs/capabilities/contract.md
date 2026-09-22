@@ -16,6 +16,42 @@ applications use to consume capability metadata from the models.dev catalog.
 (including `type = "decision"` entries). Responses are cached publicly for one
 hour (`Cache-Control: public, max-age=3600`).
 
+## Filtering
+
+`/api.json`, `/models.json`, `/catalog.json`, and `/model-schema.json` accept
+capability filters:
+
+| Param | Values |
+| --- | --- |
+| `task` | `text_generation`, `image_generation`, `video_generation`, `transcription`, `speech_synthesis`, `realtime_conversation`, `embeddings`, `reranking`, `evaluation` |
+| `feature` | `reasoning`, `tool_calling`, `structured_output`, `web_search`, `implicit_prompt_caching`, `explicit_prompt_caching` |
+| `input` | `text`, `image`, `audio`, `video`, `files` |
+| `operation` | `chat`, `messages`, `responses`, `completions`, `embeddings`, `images`, `videos`, `transcriptions`, `speech`, `rerank`, `realtime`, `evaluate` |
+| `transport` | `http`, `sse`, `websocket` |
+
+Semantics:
+
+- **Values within one param are OR-ed.** `?task=embeddings,reranking` returns
+  models that support either.
+- **Different params are AND-ed.** `?task=text_generation&feature=tool_calling`
+  requires both.
+- **Only `supported` matches.** `unsupported` and unknown (absent) capability
+  nodes never satisfy a filter. Provider entries are matched on their resolved
+  capabilities, so inherited canonical claims count and provider downgrades or
+  explicit negatives do not.
+- `operation` and `transport` describe provider serving endpoints; filtering
+  `/models.json` by them returns an empty map.
+- Combines with `?type=`; unknown values return `400` with an `allowed` list.
+- `aliases` are pruned to surviving targets when a filter removes a model.
+
+```bash
+curl "https://models.dev/models.json?task=embeddings"
+curl "https://models.dev/api.json?task=text_generation&feature=tool_calling&input=image"
+curl "https://models.dev/api.json?transport=websocket&operation=realtime"
+```
+
+Filtered responses are computed at the edge and cached per URL for one hour.
+
 ## Payload shapes
 
 ```jsonc

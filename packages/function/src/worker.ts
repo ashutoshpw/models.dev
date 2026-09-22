@@ -1,12 +1,22 @@
 import {
+  filterCatalogByCapabilities,
   filterCatalogByModelType,
+  filterModelsByCapabilities,
   filterModelsByModelType,
+  filterProvidersByCapabilities,
   filterProvidersByModelType,
+  hasCapabilityFilter,
+  InvalidCapabilityFilterError,
   InvalidModelTypeError,
   MODEL_TYPES,
+  parseCapabilityFilter,
   parseModelTypes,
 } from "@models.dev/core/src/filter.js";
-import type { ModelTypeValue } from "@models.dev/core/src/filter.js";
+import type {
+  CapabilityFilter,
+  ModelTypeFilter,
+  ModelTypeValue,
+} from "@models.dev/core/src/filter.js";
 
 export interface Env {
   ASSETS: any;
@@ -163,9 +173,9 @@ async function catalogResponse(
   env: Env,
   endpoint: CatalogEndpoint,
 ) {
-  let filter;
+  let typeFilter: ModelTypeFilter;
   try {
-    filter = parseModelTypes(url.searchParams.get("type"));
+    typeFilter = parseModelTypes(url.searchParams.get("type"));
   } catch (error) {
     if (!(error instanceof InvalidModelTypeError)) throw error;
     return Response.json(
@@ -180,57 +190,139 @@ async function catalogResponse(
     );
   }
 
+  let capabilityFilter: CapabilityFilter;
+  try {
+    capabilityFilter = parseCapabilityFilter(url.searchParams);
+  } catch (error) {
+    if (!(error instanceof InvalidCapabilityFilterError)) throw error;
+    return Response.json(
+      { error: error.message, allowed: error.allowed },
+      {
+        status: 400,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      },
+    );
+  }
+  const capabilityActive = hasCapabilityFilter(capabilityFilter);
+
+  const cache = capabilityActive ? edgeCache() : undefined;
+  const cacheKey =
+    cache === undefined ? undefined : new Request(url.toString(), { method: "GET" });
+  if (cache !== undefined && cacheKey !== undefined) {
+    const cached = await cache.match(cacheKey);
+    if (cached !== undefined) return cached;
+  }
+
   const assetUrl = new URL(url);
-  const suffix = filter === "default"
+  const suffix = typeFilter === "default"
     ? ""
-    : filter === "all"
+    : typeFilter === "all"
       ? "-all"
-      : filter.length === 1
-        ? `-${filter[0]}`
+      : typeFilter.length === 1
+        ? `-${typeFilter[0]}`
         : undefined;
-  assetUrl.pathname = `/_${endpoint}${suffix ?? "-all"}.json`;
+  assetUrl.pathname = capabilityActive
+    ? `/_${endpoint}-all.json`
+    : `/_${endpoint}${suffix ?? "-all"}.json`;
   assetUrl.search = "";
   const assetResponse = await env.ASSETS.fetch(
     new Request(assetUrl.toString(), request),
   );
-  if (!assetResponse.ok || suffix !== undefined) return assetResponse;
+  if (!assetResponse.ok) return assetResponse;
+  if (!capabilityActive && suffix !== undefined) return assetResponse;
 
   const value = await assetResponse.json();
-  const filtered = endpoint === "api"
-    ? filterProvidersByModelType(
-        value as Record<string, CatalogProvider>,
-        filter,
-      )
-    : endpoint === "models"
-      ? filterModelsByModelType(
-          value as Record<string, CatalogModel>,
-          filter,
-        )
-      : filterCatalogByModelType(
-          value as {
-            providers: Record<string, CatalogProvider>;
-            models: Record<string, CatalogModel>;
-            schema_version?: number;
-            generated_at?: string;
-            aliases?: Record<string, string>;
-          },
-          filter,
-        );
+  const capabilityFiltered = capabilityActive
+    ? applyCapabilityFilter(value, endpoint, capabilityFilter)
+    : value;
+  const filtered = typeFilter === "all"
+    ? capabilityFiltered
+    : applyTypeFilter(capabilityFiltered, endpoint, typeFilter);
 
   const headers = new Headers(assetResponse.headers);
   headers.delete("Content-Length");
   headers.delete("ETag");
   headers.set("Content-Type", "application/json");
   headers.set("Cache-Control", "public, max-age=3600");
-  return new Response(JSON.stringify(filtered), { headers });
+  const response = new Response(JSON.stringify(filtered), { headers });
+  if (cache !== undefined && cacheKey !== undefined) {
+    await cache.put(cacheKey, response.clone());
+  }
+  return response;
+}
+
+function applyCapabilityFilter(
+  value: unknown,
+  endpoint: CatalogEndpoint,
+  filter: CapabilityFilter,
+) {
+  return endpoint === "api"
+    ? filterProvidersByCapabilities(
+        value as Record<string, CatalogProvider>,
+        filter,
+      )
+    : endpoint === "models"
+      ? filterModelsByCapabilities(value as Record<string, CatalogModel>, filter)
+      : filterCatalogByCapabilities(
+          value as CatalogPayload,
+          filter,
+        );
+}
+
+function applyTypeFilter(
+  value: unknown,
+  endpoint: CatalogEndpoint,
+  filter: ModelTypeFilter,
+) {
+  return endpoint === "api"
+    ? filterProvidersByModelType(
+        value as Record<string, CatalogProvider>,
+        filter,
+      )
+    : endpoint === "models"
+      ? filterModelsByModelType(value as Record<string, CatalogModel>, filter)
+      : filterCatalogByModelType(value as CatalogPayload, filter);
+}
+
+interface EdgeCache {
+  match(key: Request): Promise<Response | undefined>;
+  put(key: Request, response: Response): Promise<void>;
+}
+
+function edgeCache(): EdgeCache | undefined {
+  const globalCaches = (
+    globalThis as unknown as { caches?: { default?: EdgeCache } }
+  ).caches;
+  return globalCaches?.default;
+}
+
+interface CatalogCapabilityNode {
+  status?: string;
 }
 
 interface CatalogModel {
   type?: ModelTypeValue;
+  capabilities?: {
+    tasks?: Record<string, CatalogCapabilityNode | undefined>;
+    inputs?: Record<string, CatalogCapabilityNode | undefined>;
+    features?: Record<string, CatalogCapabilityNode | undefined>;
+    endpoints?: {
+      transports?: Record<string, CatalogCapabilityNode | undefined>;
+      operations?: Record<string, CatalogCapabilityNode | undefined>;
+    };
+  };
 }
 
 interface CatalogProvider {
   models: Record<string, CatalogModel>;
+}
+
+interface CatalogPayload {
+  providers: Record<string, CatalogProvider>;
+  models: Record<string, CatalogModel>;
+  schema_version?: number;
+  generated_at?: string;
+  aliases?: Record<string, string>;
 }
 
 function isHtmlRoute(pathname: string) {

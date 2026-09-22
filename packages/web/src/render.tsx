@@ -1,7 +1,14 @@
 /** @jsx jsx */
 /** @jsxImportSource hono/jsx */
 
-import { generateCatalog } from "@models.dev/core";
+import {
+  CapabilityFeatureValues,
+  CapabilityInputValues,
+  CapabilityTaskValues,
+  generateCatalog,
+  OperationValues,
+  TransportValues,
+} from "@models.dev/core";
 import type { Model, ModelMetadata, Provider } from "@models.dev/core";
 import { Fragment } from "hono/jsx";
 import { renderToString } from "hono/jsx/dom/server";
@@ -9,6 +16,7 @@ import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
 import {
   booleanText,
+  capabilityFilterAttribute,
   capabilitySearchTokens,
   capabilityStatusText,
   capabilitySummary,
@@ -868,6 +876,7 @@ function ModelPage(props: { model: ModelEntry }) {
         title="Providers"
         count={model.providers.length}
         columns={10}
+        facets={providerModelFacets(model.providers)}
       >
         <ProviderModelsTable models={model.providers} mode="model" />
       </TableSection>
@@ -926,7 +935,12 @@ function ProviderPage(props: {
           ["Operations", providerEndpointSummary(props.models, "operations")],
         ]}
       />
-      <TableSection title="Models" count={props.models.length} columns={9}>
+      <TableSection
+        title="Models"
+        count={props.models.length}
+        columns={9}
+        facets={providerModelFacets(props.models)}
+      >
         <ProviderModelsTable models={props.models} mode="provider" showLab={false} />
       </TableSection>
     </Fragment>
@@ -1024,6 +1038,126 @@ function FactModalities(props: { modalities?: string[] }) {
   );
 }
 
+interface CapabilityFacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+interface CapabilityFacet {
+  axis: string;
+  label: string;
+  options: CapabilityFacetOption[];
+}
+
+function capabilityFacetAxes(): Array<{
+  axis: string;
+  label: string;
+  order: readonly string[];
+}> {
+  return [
+    { axis: "task", label: "Tasks", order: CapabilityTaskValues },
+    { axis: "feature", label: "Features", order: CapabilityFeatureValues },
+    { axis: "input", label: "Inputs", order: CapabilityInputValues },
+    { axis: "transport", label: "Transports", order: TransportValues },
+    { axis: "operation", label: "Operations", order: OperationValues },
+  ];
+}
+
+function capabilityFacetLabel(value: string) {
+  const label = value.replaceAll("_", " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function buildCapabilityFacets(
+  tokenLists: string[][],
+  axes: readonly string[],
+): CapabilityFacet[] {
+  return capabilityFacetAxes()
+    .filter((facet) => axes.includes(facet.axis))
+    .map((facet) => {
+      const counts = new Map<string, number>();
+      for (const tokens of tokenLists) {
+        for (const token of tokens) {
+          if (!token.startsWith(`${facet.axis}:`)) continue;
+          const value = token.slice(facet.axis.length + 1);
+          counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
+      }
+      return {
+        axis: facet.axis,
+        label: facet.label,
+        options: facet.order
+          .filter((value) => counts.has(value))
+          .map((value) => ({
+            value,
+            label: capabilityFacetLabel(value),
+            count: counts.get(value) ?? 0,
+          })),
+      };
+    })
+    .filter((facet) => facet.options.length > 0);
+}
+
+function canonicalModelFacets(models: ModelEntry[]) {
+  return buildCapabilityFacets(
+    models.map((model) =>
+      capabilityFilterAttribute(model.metadata).split(" ").filter(Boolean),
+    ),
+    ["task", "feature", "input"],
+  );
+}
+
+function providerModelFacets(models: ProviderModelEntry[]) {
+  return buildCapabilityFacets(
+    models.map((model) =>
+      capabilityFilterAttribute(model.model).split(" ").filter(Boolean),
+    ),
+    ["task", "feature", "input", "transport", "operation"],
+  );
+}
+
+function CapabilityFilterBar(props: { facets: CapabilityFacet[] }) {
+  return (
+    <div class="capability-filters" data-capability-filters>
+      <div class="capability-filter-groups">
+        {props.facets.map((facet) => (
+          <details class="capability-filter" data-capability-axis={facet.axis}>
+            <summary>
+              {facet.label}
+              <span class="capability-filter-selected" data-capability-selected></span>
+            </summary>
+            <div class="capability-filter-options">
+              {facet.options.map((option) => (
+                <label class="capability-filter-option">
+                  <input type="checkbox" value={`${facet.axis}:${option.value}`} />
+                  <span>{option.label}</span>
+                  <span class="capability-filter-count">{option.count}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+      <div class="capability-filter-actions">
+        <span
+          class="capability-filter-status"
+          data-capability-status
+          aria-live="polite"
+        ></span>
+        <button
+          type="button"
+          class="capability-filter-clear"
+          data-capability-clear
+          hidden
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ModelTable(props: {
   models: ModelEntry[];
   title: string;
@@ -1039,6 +1173,7 @@ function ModelTable(props: {
       count={props.models.length}
       columns={columns}
       hideHeading={props.hideHeading}
+      facets={canonicalModelFacets(props.models)}
     >
       <table data-enhanced-table>
         <thead>
@@ -1066,6 +1201,7 @@ function ModelTable(props: {
             return (
               <tr
                 data-search={`${metadata.name} ${metadata.description} ${model.id} ${model.labName} ${metadata.family ?? ""} ${weightsText(metadata.open_weights)} ${booleanText(metadata.reasoning)} ${booleanText(metadata.tool_call)} ${booleanText(metadata.structured_output)} ${booleanText(metadata.temperature)}`}
+                data-capabilities={capabilityFilterAttribute(metadata)}
               >
                 <td data-sort={metadata.name}>
                   <a class="primary-link" href={modelHref(model.id)}>
@@ -1171,6 +1307,7 @@ function ProviderModelsTable(props: {
           return (
             <tr
               data-search={`${displayName} ${entry.model.description} ${entry.modelId} ${entry.provider.name} ${entry.providerId} ${lab?.name ?? ""} ${entry.model.family ?? ""} ${booleanText(entry.model.reasoning)} ${booleanText(entry.model.tool_call)} ${booleanText(entry.model.structured_output)} ${booleanText(entry.model.temperature)} ${capabilitySearchTokens(entry.model.capabilities?.tasks).join(" ")} ${capabilitySearchTokens(entry.model.capabilities?.features).join(" ")}`}
+              data-capabilities={capabilityFilterAttribute(entry.model)}
             >
               {props.mode === "model" ? (
                 <td data-sort={entry.provider.name}>
@@ -1270,6 +1407,7 @@ function TableSection(props: {
   count: number;
   columns: number;
   hideHeading?: boolean;
+  facets?: CapabilityFacet[];
   children: unknown;
 }) {
   return (
@@ -1280,8 +1418,11 @@ function TableSection(props: {
           <span>{formatNumber(props.count)}</span>
         </div>
       )}
+      {props.facets !== undefined && props.facets.length > 0 && (
+        <CapabilityFilterBar facets={props.facets} />
+      )}
       <div class="table-wrap">{props.children}</div>
-      <p class="empty-message">No rows match the current search.</p>
+      <p class="empty-message">No rows match the current filters.</p>
     </section>
   );
 }

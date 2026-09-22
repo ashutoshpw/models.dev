@@ -1,5 +1,13 @@
 import Index from "../index.html";
-import { getRenderedPage, Models, Providers, renderDocument } from "./render";
+import {
+  getRenderedPage,
+  Models,
+  Providers,
+  Aliases,
+  SchemaVersion,
+  GeneratedAt,
+  renderDocument,
+} from "./render";
 import {
   filterCatalogByModelType,
   filterModelsByModelType,
@@ -126,7 +134,13 @@ function catalogResponse(req: Request, endpoint: "api" | "models" | "catalog") {
     : endpoint === "models"
       ? filterModelsByModelType(Models, filter)
       : filterCatalogByModelType(
-          { models: Models, providers: Providers },
+          {
+            schema_version: SchemaVersion,
+            generated_at: GeneratedAt,
+            models: Models,
+            providers: Providers,
+            aliases: Aliases,
+          },
           filter,
         );
 

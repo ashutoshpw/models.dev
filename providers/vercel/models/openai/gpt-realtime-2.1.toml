@@ -16,3 +16,8 @@ cache_read = 0.4
 
 [modalities]
 input = ["text", "audio"]
+
+# Vercel AI Gateway disables tool calling for this realtime model
+# (tool_call = false above). Explicit unknown refuses the canonical claim.
+[capabilities.features.tool_calling]
+status = "unknown"

@@ -17,3 +17,18 @@ output = 32_768
 [modalities]
 input = ["text", "image", "video", "pdf"]
 output = ["text", "image"]
+
+[capabilities.tasks.image_generation]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/image-generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/image-generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/image-generation"]
+verified_at = "2026-09-22"

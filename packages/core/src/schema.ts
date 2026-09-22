@@ -111,41 +111,40 @@ const OutputCost = Cost.extend({
   tiers: z.array(CostTier).optional(),
 }).strict();
 
+function isCalendarDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (month === undefined || month < 1 || month > 12) return false;
+  if (day === undefined) return true;
+
+  const leapYear =
+    year !== undefined &&
+    year % 4 === 0 &&
+    (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  return day >= 1 && day <= daysInMonth[month - 1]!;
+}
+
 const DateString = z
   .string()
   .regex(/^\d{4}-\d{2}(-\d{2})?$/, {
     message: "Must be in YYYY-MM or YYYY-MM-DD format",
   })
-  .refine(
-    (value) => {
-      const [year, month, day] = value.split("-").map(Number);
-      if (month === undefined || month < 1 || month > 12) return false;
-      if (day === undefined) return true;
-
-      const leapYear =
-        year !== undefined &&
-        year % 4 === 0 &&
-        (year % 100 !== 0 || year % 400 === 0);
-      const daysInMonth = [
-        31,
-        leapYear ? 29 : 28,
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-      ];
-      return day >= 1 && day <= daysInMonth[month - 1]!;
-    },
-    {
-      message: "Must be a valid calendar date",
-    },
-  );
+  .refine(isCalendarDate, {
+    message: "Must be a valid calendar date",
+  });
 
 const Modality = z.enum(["text", "audio", "image", "video", "pdf"]);
 
@@ -174,6 +173,323 @@ const ProviderModelLimit = LimitBase.extend({
 }).strict();
 
 const UrlString = z.string().url("Must be a valid URL");
+
+/**
+ * Capability metadata.
+ *
+ * Capabilities are tri-state: a node with `status = "supported"` or
+ * `"unsupported"` is an evidence-backed declaration; a missing node means
+ * unknown. `supported`/`unsupported` declarations require at least one
+ * evidence URL and a `verified_at` date. `unknown` forbids both, so an
+ * explicit unknown can clear an inherited declaration.
+ */
+export const CapabilityStatus = z.enum(["supported", "unsupported", "unknown"]);
+
+export const CapabilityTaskValues = [
+  "text_generation",
+  "image_generation",
+  "video_generation",
+  "transcription",
+  "speech_synthesis",
+  "realtime_conversation",
+  "embeddings",
+  "reranking",
+  "evaluation",
+] as const;
+
+export const CapabilityInputValues = [
+  "text",
+  "image",
+  "audio",
+  "video",
+  "files",
+] as const;
+
+export const CapabilityFeatureValues = [
+  "reasoning",
+  "tool_calling",
+  "structured_output",
+  "web_search",
+  "implicit_prompt_caching",
+  "explicit_prompt_caching",
+] as const;
+
+export const TransportValues = ["http", "sse", "websocket"] as const;
+
+export const OperationValues = [
+  "chat",
+  "messages",
+  "responses",
+  "completions",
+  "embeddings",
+  "images",
+  "videos",
+  "transcriptions",
+  "speech",
+  "rerank",
+  "realtime",
+  "evaluate",
+] as const;
+
+export const CapabilityTask = z.enum(CapabilityTaskValues);
+export const CapabilityInput = z.enum(CapabilityInputValues);
+export const CapabilityFeature = z.enum(CapabilityFeatureValues);
+export const Transport = z.enum(TransportValues);
+export const Operation = z.enum(OperationValues);
+
+export type CapabilityStatus = z.infer<typeof CapabilityStatus>;
+export type CapabilityTaskValue = (typeof CapabilityTaskValues)[number];
+export type CapabilityInputValue = (typeof CapabilityInputValues)[number];
+export type CapabilityFeatureValue = (typeof CapabilityFeatureValues)[number];
+export type TransportValue = (typeof TransportValues)[number];
+export type OperationValue = (typeof OperationValues)[number];
+
+/** Normative operation to task mapping, enforced by validation. */
+export const OPERATION_TASKS: Record<OperationValue, CapabilityTaskValue> = {
+  chat: "text_generation",
+  messages: "text_generation",
+  responses: "text_generation",
+  completions: "text_generation",
+  embeddings: "embeddings",
+  images: "image_generation",
+  videos: "video_generation",
+  transcriptions: "transcription",
+  speech: "speech_synthesis",
+  rerank: "reranking",
+  realtime: "realtime_conversation",
+  evaluate: "evaluation",
+};
+
+const VerificationDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "Must be in YYYY-MM-DD format",
+  })
+  .refine(isCalendarDate, {
+    message: "Must be a valid calendar date",
+  });
+
+const MediaType = z.string().regex(
+  /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i,
+  { message: "Must be a valid media type (e.g. application/pdf)" },
+);
+
+const Evidence = z
+  .array(UrlString)
+  .min(1, "At least one evidence URL is required");
+
+const DeclarationBase = z
+  .object({
+    status: CapabilityStatus,
+    evidence: Evidence.optional(),
+    verified_at: VerificationDate.optional(),
+  })
+  .strict();
+
+type DeclarationData = z.infer<typeof DeclarationBase>;
+
+const DECLARATION_MESSAGE =
+  "supported/unsupported require evidence and verified_at; unknown forbids them";
+
+function declarationIsConsistent(data: DeclarationData) {
+  return data.status === "unknown"
+    ? data.evidence === undefined && data.verified_at === undefined
+    : data.evidence !== undefined && data.verified_at !== undefined;
+}
+
+export const Declaration = DeclarationBase.refine(declarationIsConsistent, {
+  message: DECLARATION_MESSAGE,
+});
+
+const InputDeclarationBase = DeclarationBase.extend({
+  formats: z.array(MediaType).min(1, "formats cannot be empty").optional(),
+}).strict();
+
+export const InputDeclaration = InputDeclarationBase.refine(
+  declarationIsConsistent,
+  { message: DECLARATION_MESSAGE },
+).refine((data) => data.formats === undefined || data.status === "supported", {
+  message: "formats can only be set when status is supported",
+  path: ["formats"],
+});
+
+/**
+ * Builds a strict object with every key from `keys` optional, so omitted
+ * capabilities are unknown and the inferred type matches the runtime
+ * behavior. `z.record` is intentionally avoided: it infers required keys in
+ * this Zod version.
+ */
+function capabilityMap<K extends string, T extends z.ZodTypeAny>(
+  keys: readonly K[],
+  value: T,
+) {
+  return z
+    .object(
+      Object.fromEntries(
+        keys.map((key) => [key, value.optional()]),
+      ) as Record<K, z.ZodOptional<T>>,
+    )
+    .strict();
+}
+
+export const Capabilities = z
+  .object({
+    tasks: capabilityMap(CapabilityTaskValues, Declaration).optional(),
+    inputs: capabilityMap(CapabilityInputValues, InputDeclaration).optional(),
+    features: capabilityMap(CapabilityFeatureValues, Declaration).optional(),
+  })
+  .strict();
+
+export const EndpointCapabilities = z
+  .object({
+    transports: capabilityMap(TransportValues, Declaration).optional(),
+    operations: capabilityMap(OperationValues, Declaration).optional(),
+  })
+  .strict();
+
+export const ProviderCapabilities = Capabilities.extend({
+  endpoints: EndpointCapabilities.optional(),
+}).strict();
+
+export type Capabilities = z.infer<typeof Capabilities>;
+export type EndpointCapabilities = z.infer<typeof EndpointCapabilities>;
+export type ProviderCapabilities = z.infer<typeof ProviderCapabilities>;
+export type Declaration = z.infer<typeof Declaration>;
+export type InputDeclaration = z.infer<typeof InputDeclaration>;
+
+interface CapabilityConsistencyInput {
+  id?: string;
+  reasoning?: boolean;
+  tool_call?: boolean;
+  structured_output?: boolean;
+  modalities?: { input: string[] };
+  aliases?: readonly string[];
+  capabilities?: {
+    tasks?: Record<string, { status?: CapabilityStatus } | undefined>;
+    inputs?: Record<
+      string,
+      { status?: CapabilityStatus; formats?: unknown } | undefined
+    >;
+    features?: Record<string, { status?: CapabilityStatus } | undefined>;
+    endpoints?: {
+      operations?: Record<string, { status?: CapabilityStatus } | undefined>;
+    };
+  };
+}
+
+export const INPUT_MODALITIES: Array<[CapabilityInputValue, string]> = [
+  ["text", "text"],
+  ["image", "image"],
+  ["audio", "audio"],
+  ["video", "video"],
+  ["files", "pdf"],
+];
+
+const FEATURE_BOOLEANS: Array<[CapabilityFeatureValue, string]> = [
+  ["reasoning", "reasoning"],
+  ["tool_calling", "tool_call"],
+  ["structured_output", "structured_output"],
+];
+
+function addCapabilityIssues(
+  data: CapabilityConsistencyInput,
+  ctx: z.RefinementCtx,
+) {
+  const features = data.capabilities?.features;
+  for (const [feature, field] of FEATURE_BOOLEANS) {
+    const value = data[field as keyof CapabilityConsistencyInput];
+    const status = features?.[feature]?.status;
+    if (typeof value !== "boolean" || status === undefined || status === "unknown") {
+      continue;
+    }
+    if (value !== (status === "supported")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["capabilities", "features", feature],
+        message: `${field} = ${value} contradicts capabilities.${feature}.${status}`,
+      });
+    }
+  }
+
+  const inputs = data.capabilities?.inputs;
+  if (inputs !== undefined) {
+    for (const [kind, node] of Object.entries(inputs)) {
+      if (kind !== "files" && node?.formats !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["capabilities", "inputs", kind, "formats"],
+          message: "formats can only be set on inputs.files",
+        });
+      }
+    }
+
+    if (data.modalities !== undefined) {
+      for (const [kind, modality] of INPUT_MODALITIES) {
+        if (
+          inputs[kind]?.status === "unsupported" &&
+          data.modalities.input.includes(modality)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["capabilities", "inputs", kind],
+            message: `inputs.${kind} is unsupported but modalities.input includes "${modality}"`,
+          });
+        }
+      }
+    }
+  }
+
+  const operations = data.capabilities?.endpoints?.operations;
+  if (operations !== undefined) {
+    for (const [operation, declaration] of Object.entries(operations)) {
+      if (declaration?.status !== "supported") continue;
+      const task =
+        OPERATION_TASKS[operation as OperationValue];
+      if (
+        task !== undefined &&
+        data.capabilities?.tasks?.[task]?.status === "unsupported"
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["capabilities", "endpoints", "operations", operation],
+          message: `operation "${operation}" is supported but task "${task}" is unsupported`,
+        });
+      }
+    }
+  }
+
+  if (data.id !== undefined && data.aliases?.includes(data.id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["aliases"],
+      message: "A model cannot alias itself",
+    });
+  }
+}
+
+const CanonicalAlias = z
+  .string()
+  .min(1, "Alias cannot be empty")
+  .refine(
+    (value) =>
+      value.includes("/") &&
+      !value.startsWith("/") &&
+      !value.endsWith("/") &&
+      !/\s/.test(value) &&
+      !value.split("/").some((part) => part.length === 0),
+    { message: "Alias must be a fully-qualified <lab>/<model> identifier" },
+  );
+
+const ProviderAlias = z
+  .string()
+  .min(1, "Alias cannot be empty")
+  .refine(
+    (value) =>
+      !value.startsWith("/") &&
+      !value.endsWith("/") &&
+      !/\s/.test(value),
+    { message: "Alias must not contain whitespace or leading/trailing slashes" },
+  );
 
 export const ModelLink = z
   .object({
@@ -241,9 +557,14 @@ const ModelMetadataBase = z.object({
   links: z.array(ModelLink).optional(),
   weights: z.array(ModelWeights).optional(),
   benchmarks: z.array(BenchmarkResult).optional(),
+  capabilities: Capabilities.optional(),
+  aliases: z.array(CanonicalAlias).optional(),
 });
 
-export const ModelMetadata = ModelMetadataBase.strict();
+export const ModelMetadata = ModelMetadataBase.strict().superRefine(
+  (data, ctx) =>
+    addCapabilityIssues(data as CapabilityConsistencyInput, ctx),
+);
 
 export type ModelMetadata = z.infer<typeof ModelMetadata>;
 
@@ -276,6 +597,9 @@ const ModelBase = z.object({
   open_weights: z.boolean(),
   limit: ProviderModelLimit,
   status: z.enum(["alpha", "beta", "deprecated"]).optional(),
+  capabilities: ProviderCapabilities.optional(),
+  aliases: z.array(ProviderAlias).optional(),
+  canonical: z.string().min(1, "Canonical model cannot be empty").optional(),
   experimental: z
     .object({
       modes: z
@@ -358,6 +682,9 @@ function refineModel<
         message: "Cost context tiers must not have duplicate sizes",
         path: ["cost", "tiers"],
       },
+    )
+    .superRefine((data, ctx) =>
+      addCapabilityIssues(data as CapabilityConsistencyInput, ctx),
     );
 }
 

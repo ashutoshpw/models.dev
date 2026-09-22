@@ -16,3 +16,23 @@ output = 0
 [modalities]
 input = ["text", "image"]
 output = ["image"]
+
+[capabilities.tasks.image_generation]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-image-1"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.text_generation]
+status = "unsupported"
+evidence = ["https://platform.openai.com/docs/models/gpt-image-1"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-image-1"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/guides/images-vision"]
+verified_at = "2026-09-22"

@@ -16,3 +16,18 @@ output = 0
 [modalities]
 input = ["text", "image", "video"]
 output = ["video"]
+
+[capabilities.tasks.video_generation]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/veo"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/veo"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/veo"]
+verified_at = "2026-09-22"

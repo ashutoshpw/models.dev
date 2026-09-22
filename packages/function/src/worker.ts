@@ -205,6 +205,9 @@ async function catalogResponse(
           value as {
             providers: Record<string, CatalogProvider>;
             models: Record<string, CatalogModel>;
+            schema_version?: number;
+            generated_at?: string;
+            aliases?: Record<string, string>;
           },
           filter,
         );

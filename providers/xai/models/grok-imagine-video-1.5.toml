@@ -2,3 +2,13 @@ base_model = "xai/grok-imagine-video-1.5"
 
 [modalities]
 input = ["text", "image", "audio", "pdf"]
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/video/generation"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.videos]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/video/generation"]
+verified_at = "2026-09-22"

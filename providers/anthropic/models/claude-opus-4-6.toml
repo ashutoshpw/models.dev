@@ -32,3 +32,18 @@ output = 128_000
 [modalities]
 input = ["text", "image", "pdf"]
 output = ["text"]
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/api/messages"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.transports.sse]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/streaming"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.messages]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/api/messages"]
+verified_at = "2026-09-22"

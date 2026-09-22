@@ -14,3 +14,13 @@ input = 0.75
 output = 4.50
 input_audio = 3.00
 output_audio = 12.00
+
+[capabilities.endpoints.transports.websocket]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.realtime]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket"]
+verified_at = "2026-09-22"

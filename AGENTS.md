@@ -152,6 +152,40 @@ With `base_model`, do not restate fields already correct on the lab entry. Still
 | `interleaved` | Reasoning side channel on **this** API (`reasoning_content` / `reasoning_details`, or `true`) |
 | `status` | Lifecycle on **this** host: `alpha` / `beta` / `deprecated` |
 | `provider`, `experimental` | Request-shape overrides / experimental modes |
+| `capabilities.endpoints` | Transports/operations exist only on the provider's serving endpoint |
+
+### Capability metadata
+
+Optional and additive, but declaration rules are strict:
+
+- **Tri-state, missing = unknown.** `status = "supported" | "unsupported" | "unknown"`.
+  `supported`/`unsupported` require `evidence` (≥1 URL) and `verified_at`
+  (`YYYY-MM-DD`); `unknown` forbids both. Never infer confirmed capabilities from
+  model names, tool-calling support, or cache pricing.
+- **Tasks ≠ modalities.** `output = ["text"]` does not mean `text_generation`.
+  Embedding and rerank models must declare their task and must not be described
+  as text generators. Benchmarks do not imply `tasks.evaluation`; that task means
+  a dedicated scoring/evaluation operation.
+- **Provider overrides.** Providers inherit canonical capability defaults and may
+  override any single node, including explicit negatives (`status = "unsupported"`)
+  and resets to unknown (`status = "unknown"` / `base_model_omit`). A provider
+  overriding a status must supply its own evidence. A provider that disables a
+  legacy boolean (`tool_call`, `reasoning`, `structured_output`) without authoring
+  its own declaration resolves that capability to unknown automatically.
+- **Same-ID first-party entries** (for example `providers/openai/models/gpt-5.4.toml`
+  whose canonical model is `models/openai/gpt-5.4.toml`) inherit canonical
+  capability defaults even without `base_model`, so first-party provider JSON
+  carries the same resolved capabilities as relay entries.
+- **Consistency.** Capability features must agree with the legacy booleans that
+  remain in the same file; capability inputs must not contradict `modalities`.
+- **Files.** `capabilities.inputs.files.formats` uses media types (e.g.
+  `application/pdf`) and only with `status = "supported"`.
+- **Aliases/canonical.** Lab `aliases` are fully-qualified `<lab>/<model>` IDs;
+  provider `aliases` are provider-scoped. `canonical` must resolve to an existing
+  lab model and must equal `base_model` when both are present. Aliases are never
+  inherited by provider entries.
+- **Docs/contract:** `docs/capabilities/contract.md`; population is reported by
+  `bun run coverage:capabilities` (CI checks the committed report is current).
 
 ### Cost (always USD)
 
@@ -264,7 +298,10 @@ reasoning_options = [{ type = "effort", values = ["none", "low", "medium", "high
 - [ ] Provider `base_model` files are override-only (no duplicated identical fields; no provider-only keys under `models/`)
 - [ ] `reasoning = true` ⇒ `reasoning_options` set per policy above
 - [ ] Costs are USD/MTok
+- [ ] Capability declarations have `evidence` + `verified_at`; no capability inferred from names, tool support, or cache pricing
+- [ ] No task claims derived from `modalities.output`; embedding/rerank entries are not text generators
 - [ ] `bun validate` passes
+- [ ] `bun run coverage:capabilities --check` passes when capabilities change
 
 ### Strongly recommended
 

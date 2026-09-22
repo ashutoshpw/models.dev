@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { RenderedPages, Providers, Models, renderDocument } from "../src/render";
+import { RenderedPages, Providers, Models, Aliases, SchemaVersion, GeneratedAt, renderDocument } from "../src/render";
 import {
   filterCatalogByModelType,
   MODEL_TYPES,
@@ -79,7 +79,13 @@ for (const [route, rendered] of RenderedPages) {
   await Bun.write(filePath, renderDocument(template, rendered));
 }
 
-const catalog = { models: Models, providers: Providers };
+const catalog = {
+  schema_version: SchemaVersion,
+  generated_at: GeneratedAt,
+  models: Models,
+  providers: Providers,
+  aliases: Aliases,
+};
 const variants: Array<[suffix: string, filter: ModelTypeFilter]> = [
   ["", "default"],
   ["-all", "all"],

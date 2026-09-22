@@ -35,3 +35,23 @@ output = ["text"]
 [experimental.modes.fast]
 cost = { input = 5.00, output = 30.00, cache_read = 0.50 }
 provider = { body = { service_tier = "priority" } }
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-5.4"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.transports.sse]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/guides/streaming-responses"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.chat]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-5.4"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.responses]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-5.4"]
+verified_at = "2026-09-22"

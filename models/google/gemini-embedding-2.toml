@@ -17,3 +17,34 @@ output = 3_072
 [modalities]
 input = ["text", "image", "audio", "video", "pdf"]
 output = ["text"]
+
+[capabilities.tasks.embeddings]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.audio]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.video]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.files]
+status = "supported"
+formats = ["application/pdf", "video/mp4"]
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"

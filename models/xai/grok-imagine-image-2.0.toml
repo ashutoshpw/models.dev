@@ -24,3 +24,18 @@ output = 0
 [modalities]
 input = ["text", "image"]
 output = ["image"]
+
+[capabilities.tasks.image_generation]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/images/generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/images/generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/images/generation"]
+verified_at = "2026-09-22"

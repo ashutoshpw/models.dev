@@ -9,6 +9,8 @@ import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
 import {
   booleanText,
+  capabilitySearchTokens,
+  capabilityStatusText,
   capabilitySummary,
   costSummary,
   escapeHtml,
@@ -26,6 +28,9 @@ const Catalog = await generateCatalog(root);
 
 export const Models = Catalog.models;
 export const Providers = Catalog.providers;
+export const Aliases = Catalog.aliases;
+export const SchemaVersion = Catalog.schema_version;
+export const GeneratedAt = Catalog.generated_at;
 
 const BaseModelRefs = await loadProviderBaseModelRefs(root);
 const LabMetadata = loadLabMetadata(root);
@@ -335,6 +340,8 @@ function buildSearchItems(
         ]),
         ...(metadata.modalities?.input ?? []),
         ...(metadata.modalities?.output ?? []),
+        ...capabilitySearchTokens(metadata.capabilities?.tasks),
+        ...capabilitySearchTokens(metadata.capabilities?.features),
       ].filter((token): token is string => Boolean(token)),
     });
   }
@@ -852,6 +859,8 @@ function ModelPage(props: { model: ModelEntry }) {
               ["temperature", metadata.temperature],
             ]),
           ],
+          ["Tasks", capabilityStatusText(metadata.capabilities?.tasks)],
+          ["Features", capabilityStatusText(metadata.capabilities?.features)],
         ]}
       />
       <TableSection
@@ -864,6 +873,29 @@ function ModelPage(props: { model: ModelEntry }) {
       </TableSection>
     </Fragment>
   );
+}
+
+function providerEndpointSummary(
+  models: ProviderModelEntry[],
+  axis: "transports" | "operations",
+) {
+  const supported = new Set<string>();
+  const unsupported = new Set<string>();
+
+  for (const entry of models) {
+    const group = entry.model.capabilities?.endpoints?.[axis];
+    if (group === undefined) continue;
+    for (const [key, node] of Object.entries(group)) {
+      if (node?.status === "supported") supported.add(key);
+      if (node?.status === "unsupported") unsupported.add(key);
+    }
+  }
+
+  if (supported.size === 0 && unsupported.size === 0) return "-";
+  return [
+    ...[...supported].sort(),
+    ...[...unsupported].sort().map((key) => `${key} (unsupported)`),
+  ].join(", ");
 }
 
 function ProviderPage(props: {
@@ -890,6 +922,8 @@ function ProviderPage(props: {
               Provider docs
             </a>,
           ],
+          ["Transports", providerEndpointSummary(props.models, "transports")],
+          ["Operations", providerEndpointSummary(props.models, "operations")],
         ]}
       />
       <TableSection title="Models" count={props.models.length} columns={9}>
@@ -1136,7 +1170,7 @@ function ProviderModelsTable(props: {
 
           return (
             <tr
-              data-search={`${displayName} ${entry.model.description} ${entry.modelId} ${entry.provider.name} ${entry.providerId} ${lab?.name ?? ""} ${entry.model.family ?? ""} ${booleanText(entry.model.reasoning)} ${booleanText(entry.model.tool_call)} ${booleanText(entry.model.structured_output)} ${booleanText(entry.model.temperature)}`}
+              data-search={`${displayName} ${entry.model.description} ${entry.modelId} ${entry.provider.name} ${entry.providerId} ${lab?.name ?? ""} ${entry.model.family ?? ""} ${booleanText(entry.model.reasoning)} ${booleanText(entry.model.tool_call)} ${booleanText(entry.model.structured_output)} ${booleanText(entry.model.temperature)} ${capabilitySearchTokens(entry.model.capabilities?.tasks).join(" ")} ${capabilitySearchTokens(entry.model.capabilities?.features).join(" ")}`}
             >
               {props.mode === "model" ? (
                 <td data-sort={entry.provider.name}>

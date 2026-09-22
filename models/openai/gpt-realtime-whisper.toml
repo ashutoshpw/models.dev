@@ -16,3 +16,18 @@ output = 0
 [modalities]
 input = ["audio"]
 output = ["text"]
+
+[capabilities.tasks.transcription]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-whisper"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.text_generation]
+status = "unsupported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-whisper"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.audio]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-whisper"]
+verified_at = "2026-09-22"

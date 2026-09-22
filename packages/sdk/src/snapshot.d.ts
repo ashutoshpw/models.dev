@@ -6,9 +6,15 @@ export declare const providers: ProviderMap
 /** Provider-agnostic model metadata keyed by canonical model ID. Same shape as `client.models()`. */
 export declare const models: ModelMetadataMap
 
+/** Alias ID to resolved model ID map (canonical and provider scoped). */
+export declare const aliases: Record<string, string>
+
+/** Catalog contract version embedded in this snapshot. */
+export declare const schemaVersion: number
+
 /** ISO timestamp of when this snapshot was generated from the models.dev repository. */
 export declare const generatedAt: string
 
-/** The full catalog: `{ providers, models }`. Same shape as `client.catalog()`. */
+/** The full catalog: `{ schema_version, providers, models, aliases }`. Same shape as `client.catalog()`. */
 declare const snapshot: Catalog
 export default snapshot

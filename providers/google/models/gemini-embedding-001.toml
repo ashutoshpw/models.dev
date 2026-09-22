@@ -21,3 +21,13 @@ output = 1
 [modalities]
 input = ["text"]
 output = ["text"]
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.embeddings]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"

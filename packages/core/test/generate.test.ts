@@ -96,8 +96,15 @@ cache_read = 0.125
         },
       ]);
 
-      expect(catalog.providers.factored?.models.model).toEqual(
-        catalog.providers.direct?.models.model,
+      const {
+        canonical: _canonical,
+        ...factoredModel
+      } = catalog.providers.factored!.models.model!;
+      expect(factoredModel).toMatchObject(
+        catalog.providers.direct?.models.model ?? {},
+      );
+      expect(catalog.providers.factored!.models.model!.canonical).toBe(
+        "lab/model",
       );
       expect(catalog.providers.factored?.models.model).not.toHaveProperty(
         "base_model",
@@ -309,6 +316,328 @@ input = ["text"]
   });
 });
 
+describe("capabilities, aliases, and canonical references", () => {
+  test("providers inherit canonical capabilities and can negate them with evidence", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+
+[capabilities.features.implicit_prompt_caching]
+status = "unsupported"
+evidence = ["https://example.com/provider/no-cache"]
+verified_at = "2026-01-04"
+`,
+      );
+
+      const providers = await generate(path.join(root, "providers"));
+      const capabilities = providers.provider?.models.model?.capabilities;
+
+      expect(capabilities?.features?.tool_calling).toEqual({
+        status: "supported",
+        evidence: ["https://example.com/docs/tools"],
+        verified_at: "2026-01-02",
+      });
+      expect(capabilities?.features?.implicit_prompt_caching).toEqual({
+        status: "unsupported",
+        evidence: ["https://example.com/provider/no-cache"],
+        verified_at: "2026-01-04",
+      });
+      expect(providers.provider?.models.model?.canonical).toBe("lab/model");
+    });
+  });
+
+  test("provider status overrides must supply their own evidence", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+
+[capabilities.features.tool_calling]
+status = "unsupported"
+`,
+      );
+
+      expect(generateCatalog(root)).rejects.toThrow(
+        "must include evidence and verified_at",
+      );
+    });
+  });
+
+  test("explicit unknown clears inherited evidence", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+
+[capabilities.features.implicit_prompt_caching]
+status = "unknown"
+`,
+      );
+
+      const providers = await generate(path.join(root, "providers"));
+
+      expect(
+        providers.provider?.models.model?.capabilities?.features
+          ?.implicit_prompt_caching,
+      ).toEqual({ status: "unknown" });
+    });
+  });
+
+  test("base_model_omit resets capabilities to unknown", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+base_model_omit = ["capabilities.features.implicit_prompt_caching"]
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      const providers = await generate(path.join(root, "providers"));
+
+      expect(
+        providers.provider?.models.model?.capabilities?.features
+          ?.implicit_prompt_caching,
+      ).toBeUndefined();
+      expect(
+        providers.provider?.models.model?.capabilities?.tasks
+          ?.text_generation?.status,
+      ).toBe("supported");
+    });
+  });
+
+  test("provider legacy booleans downgrade inherited capability claims to unknown", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+tool_call = false
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      const providers = await generate(path.join(root, "providers"));
+      const model = providers.provider?.models.model;
+
+      expect(model?.tool_call).toBe(false);
+      expect(
+        model?.capabilities?.features?.tool_calling,
+      ).toBeUndefined();
+      expect(
+        model?.capabilities?.features?.implicit_prompt_caching?.status,
+      ).toBe("supported");
+    });
+  });
+
+  test("provider modality overrides downgrade inherited negative input claims", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+
+[modalities]
+input = ["text", "image", "pdf"]
+`,
+      );
+
+      const providers = await generate(path.join(root, "providers"));
+      const model = providers.provider?.models.model;
+
+      expect(model?.modalities.input).toContain("pdf");
+      expect(model?.capabilities?.inputs?.files).toBeUndefined();
+    });
+  });
+
+  test("canonical aliases are exposed on models and not inherited by providers", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      const catalog = await generateCatalog(root);
+
+      expect(catalog.models["lab/model"]?.aliases).toEqual([
+        "lab/model-latest",
+      ]);
+      expect(catalog.providers.provider?.models.model).not.toHaveProperty(
+        "aliases",
+      );
+      expect(catalog.aliases).toEqual({
+        "lab/model-latest": "lab/model",
+      });
+    });
+  });
+
+  test("provider aliases are namespaced and resolvable", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+aliases = ["model-latest"]
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      const catalog = await generateCatalog(root);
+
+      expect(catalog.aliases).toEqual({
+        "lab/model-latest": "lab/model",
+        "provider/model-latest": "provider/model",
+      });
+    });
+  });
+
+  test("authored canonical references resolve and must match base_model", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+canonical = "lab/other"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      expect(generate(path.join(root, "providers"))).rejects.toThrow(
+        'canonical "lab/other" must match base_model "lab/model"',
+      );
+    });
+  });
+
+  test("first-party provider entries resolve to their same-id canonical model", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/lab/provider.toml", providerToml("Lab"));
+      await write(root, "models/lab/capability-model.toml", capabilityModelToml());
+      await write(
+        root,
+        "providers/lab/models/capability-model.toml",
+        providerFieldsToml(),
+      );
+
+      const catalog = await generateCatalog(root);
+
+      expect(
+        catalog.providers.lab?.models["capability-model"]?.canonical,
+      ).toBe("lab/capability-model");
+    });
+  });
+
+  test("authored canonical references must exist", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        providerFieldsToml('canonical = "lab/missing"\n'),
+      );
+
+      expect(generate(path.join(root, "providers"))).rejects.toThrow(
+        "Unable to resolve canonical model: lab/missing",
+      );
+    });
+  });
+
+  test("alias collisions are rejected", async () => {
+    await withFixture(async (root) => {
+      await write(root, "providers/provider/provider.toml", providerToml("Provider"));
+      await write(root, "models/lab/model.toml", capabilityModelToml());
+      await write(
+        root,
+        "models/lab/other.toml",
+        capabilityModelToml({
+          name: "Other Model",
+          aliases: ["lab/model"],
+        }),
+      );
+      await write(
+        root,
+        "providers/provider/models/model.toml",
+        `base_model = "lab/model"
+reasoning_options = []
+
+[cost]
+input = 1
+output = 2
+`,
+      );
+
+      expect(generateCatalog(root)).rejects.toThrow(
+        'Alias "lab/model" collides with an existing model id',
+      );
+    });
+  });
+});
+
 function providerToml(name: string) {
   return `name = "${name}"
 npm = "@ai-sdk/openai"
@@ -363,8 +692,8 @@ source = "https://example.com/benchmarks"
 `;
 }
 
-function providerFieldsToml() {
-  return `name = "Lab Model"
+function providerFieldsToml(prefix = "") {
+  return `${prefix}name = "Lab Model"
 description = "Example model for catalog generation and inheritance tests"
 family = "gpt"
 release_date = "2026-01-02"
@@ -386,5 +715,50 @@ output = 128_000
 [modalities]
 input = ["text", "image"]
 output = ["text"]
+`;
+}
+
+function capabilityModelToml(
+  options: { name?: string; aliases?: string[] } = {},
+) {
+  const aliases = options.aliases ?? ["lab/model-latest"];
+  return `name = "${options.name ?? "Capability Model"}"
+description = "Example model carrying capability metadata"
+release_date = "2026-01-02"
+last_updated = "2026-01-03"
+attachment = true
+reasoning = true
+tool_call = true
+structured_output = true
+open_weights = false
+aliases = [${aliases.map((alias) => JSON.stringify(alias)).join(", ")}]
+
+[limit]
+context = 100_000
+output = 8_000
+
+[modalities]
+input = ["text", "image"]
+output = ["text"]
+
+[capabilities.tasks.text_generation]
+status = "supported"
+evidence = ["https://example.com/docs/text"]
+verified_at = "2026-01-02"
+
+[capabilities.features.tool_calling]
+status = "supported"
+evidence = ["https://example.com/docs/tools"]
+verified_at = "2026-01-02"
+
+[capabilities.features.implicit_prompt_caching]
+status = "supported"
+evidence = ["https://example.com/docs/cache"]
+verified_at = "2026-01-02"
+
+[capabilities.inputs.files]
+status = "unsupported"
+evidence = ["https://example.com/docs/no-files"]
+verified_at = "2026-01-02"
 `;
 }

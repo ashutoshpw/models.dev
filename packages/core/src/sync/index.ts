@@ -3,7 +3,17 @@ import { lstat, mkdir, readdir, rm } from "node:fs/promises";
 import { mergeDeep } from "remeda";
 import { z } from "zod";
 
-import { AuthoredModel, AuthoredModelShape, ModelMetadata } from "../schema.js";
+import {
+  AuthoredModel,
+  AuthoredModelShape,
+  CapabilityFeatureValues,
+  CapabilityInputValues,
+  CapabilityTaskValues,
+  ModelMetadata,
+  OperationValues,
+  TransportValues,
+} from "../schema.js";
+import { normalizeCapabilities } from "../generate.js";
 import { openMissingModelIssues } from "./missing-issues.js";
 import { MissingReasoningOptionsError } from "./missing-reasoning-options.js";
 import { aiand } from "./providers/aiand.js";
@@ -325,9 +335,13 @@ export async function syncProvider<SourceModel>(
       }
       const metadataPath = `${translated.metadata.id}.toml`;
       if (desiredMetadata.has(metadataPath)) throw new Error(`Duplicate synced metadata path: ${metadataPath}`);
+      const preservedMetadata = await preserveExistingMetadataCapabilities(
+        parsedMetadata.data,
+        modelMetadataDir(provider.modelsDir),
+      );
       desiredMetadata.set(metadataPath, {
-        model: parsedMetadata.data,
-        content: formatMetadataToml(parsedMetadata.data),
+        model: preservedMetadata,
+        content: formatMetadataToml(preservedMetadata),
       });
     }
 
@@ -359,9 +373,13 @@ export async function syncProvider<SourceModel>(
     const withDescription = provider.preserveDescriptions === false
       ? withReasoningOptions
       : preserveDescription(withReasoningOptions, existing.get(relativePath)?.authored);
+    const withCapabilities = preserveCapabilities(
+      withDescription,
+      existing.get(relativePath)?.authored,
+    );
     const parsed = SyncedAuthoredModel.safeParse(stripUndefined({
       id: translated.id,
-      ...withDescription,
+      ...withCapabilities,
     }));
     if (!parsed.success) {
       parsed.error.cause = { provider: provider.id, path: relativePath };
@@ -592,6 +610,85 @@ export function preserveReasoningOptions(
   };
 }
 
+/**
+ * Sync rewrites provider TOMLs from remote catalogs, so hand-authored
+ * capability metadata, aliases, and canonical references must be carried over
+ * from the existing file. Translated values win when the remote catalog
+ * produces them; capability trees are deep-merged so partial remote data does
+ * not drop authored declarations.
+ */
+export function preserveCapabilities(
+  model: SyncedModel,
+  existing: ExistingModel | undefined,
+): SyncedModel {
+  if (existing === undefined) return model;
+
+  const preserved: Record<string, unknown> = {};
+  if (model.aliases === undefined && existing.aliases !== undefined) {
+    preserved.aliases = existing.aliases;
+  }
+  if (model.canonical === undefined && existing.canonical !== undefined) {
+    preserved.canonical = existing.canonical;
+  }
+
+  const capabilities = existing.capabilities === undefined
+    ? model.capabilities
+    : model.capabilities === undefined
+      ? existing.capabilities
+      : mergeDeep(
+          existing.capabilities,
+          model.capabilities,
+        ) as typeof model.capabilities;
+  if (capabilities !== undefined) preserved.capabilities = capabilities;
+
+  return { ...model, ...preserved } as SyncedModel;
+}
+
+async function preserveExistingMetadataCapabilities(
+  model: z.infer<typeof ModelMetadata>,
+  metadataDir: string,
+): Promise<z.infer<typeof ModelMetadata>> {
+  let filePath: string;
+  try {
+    // Reuse the write-path guard so symlinked parents cannot inject external
+    // metadata into the synced catalog.
+    filePath = await safeWritePath(metadataDir, `${model.id}.toml`);
+  } catch {
+    return model;
+  }
+
+  const file = Bun.file(filePath);
+  if (!(await file.exists())) return model;
+
+  let parsed;
+  try {
+    parsed = ModelMetadata.safeParse({
+      id: model.id,
+      ...(Bun.TOML.parse(await file.text()) as Record<string, unknown>),
+    });
+  } catch {
+    return model;
+  }
+  if (!parsed.success) return model;
+
+  const existing = parsed.data;
+  const capabilities = existing.capabilities === undefined
+    ? model.capabilities
+    : model.capabilities === undefined
+      ? existing.capabilities
+      : mergeDeep(
+          existing.capabilities,
+          model.capabilities,
+        ) as z.infer<typeof ModelMetadata>["capabilities"];
+  const aliases = model.aliases ?? existing.aliases;
+
+  return {
+    ...model,
+    ...(capabilities === undefined ? {} : { capabilities }),
+    ...(aliases === undefined ? {} : { aliases }),
+  };
+}
+
 export async function syncTargets(target: string, options: SyncOptions = {}) {
   const ids = target in groups
     ? groups[target as keyof typeof groups]
@@ -743,7 +840,7 @@ function resolveBaseModel(
   ) as Record<string, unknown>;
   applyOmit(merged, authored.base_model_omit ?? []);
 
-  const parsed = ExistingModel.safeParse(merged);
+  const parsed = ExistingModel.safeParse(normalizeCapabilities(merged));
   if (!parsed.success) {
     parsed.error.cause = { modelPath, toml: merged };
     throw parsed.error;
@@ -758,6 +855,7 @@ function inheritableModelMetadata(model: Record<string, unknown>) {
     license: _license,
     links: _links,
     weights: _weights,
+    aliases: _aliases,
     ...metadata
   } = model;
 
@@ -1002,6 +1100,59 @@ function sortReasoningValues(values: Array<string | null>) {
   });
 }
 
+interface CapabilityNodeLike {
+  status?: string;
+  evidence?: string[];
+  verified_at?: string;
+  formats?: string[];
+}
+
+interface ProviderCapabilitiesLike {
+  tasks?: Record<string, CapabilityNodeLike | undefined>;
+  inputs?: Record<string, CapabilityNodeLike | undefined>;
+  features?: Record<string, CapabilityNodeLike | undefined>;
+  endpoints?: {
+    transports?: Record<string, CapabilityNodeLike | undefined>;
+    operations?: Record<string, CapabilityNodeLike | undefined>;
+  };
+}
+
+function formatDeclarationLines(node: CapabilityNodeLike) {
+  const lines: string[] = [];
+  if (node.status !== undefined) lines.push(`status = ${quote(node.status)}`);
+  if (node.evidence !== undefined) {
+    lines.push(`evidence = [${node.evidence.map(quote).join(", ")}]`);
+  }
+  if (node.verified_at !== undefined) {
+    lines.push(`verified_at = ${quote(node.verified_at)}`);
+  }
+  if (node.formats !== undefined) {
+    lines.push(`formats = [${node.formats.map(quote).join(", ")}]`);
+  }
+  return lines;
+}
+
+function emitCapabilityGroup(
+  lines: string[],
+  tablePath: string,
+  group: Record<string, CapabilityNodeLike | undefined> | undefined,
+  order: readonly string[],
+) {
+  if (group === undefined) return;
+  const keys = [
+    ...order.filter((key) => group[key] !== undefined),
+    ...Object.keys(group)
+      .filter((key) => !order.includes(key))
+      .sort(),
+  ];
+  for (const key of keys) {
+    const node = group[key];
+    if (node === undefined) continue;
+    lines.push("", `[${tablePath}.${formatKey(key)}]`);
+    lines.push(...formatDeclarationLines(node));
+  }
+}
+
 export function formatToml(model: z.infer<typeof SyncedAuthoredModel>) {
   const lines: string[] = [];
 
@@ -1027,6 +1178,10 @@ export function formatToml(model: z.infer<typeof SyncedAuthoredModel>) {
   if (model.knowledge !== undefined) lines.push(`knowledge = ${quote(model.knowledge)}`);
   if (model.open_weights !== undefined) lines.push(`open_weights = ${model.open_weights}`);
   if (model.status !== undefined) lines.push(`status = ${quote(model.status)}`);
+  if (model.aliases !== undefined && model.aliases.length > 0) {
+    lines.push(`aliases = [${model.aliases.map(quote).join(", ")}]`);
+  }
+  if (model.canonical !== undefined) lines.push(`canonical = ${quote(model.canonical)}`);
   if (model.reasoning_options?.length === 0) lines.push("reasoning_options = []");
 
   if (model.interleaved !== undefined) {
@@ -1099,6 +1254,45 @@ export function formatToml(model: z.infer<typeof SyncedAuthoredModel>) {
     }
     if (model.modalities.output !== undefined) {
       lines.push(`output = [${model.modalities.output.map(quote).join(", ")}]`);
+    }
+  }
+
+  const capabilities = model.capabilities as unknown as
+    | ProviderCapabilitiesLike
+    | undefined;
+  if (capabilities !== undefined) {
+    emitCapabilityGroup(
+      lines,
+      "capabilities.tasks",
+      capabilities.tasks,
+      CapabilityTaskValues,
+    );
+    emitCapabilityGroup(
+      lines,
+      "capabilities.inputs",
+      capabilities.inputs,
+      CapabilityInputValues,
+    );
+    emitCapabilityGroup(
+      lines,
+      "capabilities.features",
+      capabilities.features,
+      CapabilityFeatureValues,
+    );
+    const endpoints = capabilities.endpoints;
+    if (endpoints !== undefined) {
+      emitCapabilityGroup(
+        lines,
+        "capabilities.endpoints.transports",
+        endpoints.transports,
+        TransportValues,
+      );
+      emitCapabilityGroup(
+        lines,
+        "capabilities.endpoints.operations",
+        endpoints.operations,
+        OperationValues,
+      );
     }
   }
 

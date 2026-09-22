@@ -18,6 +18,11 @@ const providers = {
   },
 };
 const models = { text: textModel, decision: decisionModel };
+const catalogMeta = {
+  schema_version: 1,
+  generated_at: "2026-01-01T00:00:00.000Z",
+  aliases: { "text-alias": "text" },
+};
 
 describe("catalog API model type filtering", () => {
   test("omits typed models from api.json by default", async () => {
@@ -40,6 +45,15 @@ describe("catalog API model type filtering", () => {
 
     expect(Object.keys(body.models)).toEqual(["text"]);
     expect(Object.keys(body.providers.example.models)).toEqual(["text"]);
+  });
+
+  test("preserves catalog contract keys and prunes aliases when filtering", async () => {
+    const response = await request("/catalog.json");
+    const body = await response.json();
+
+    expect(body.schema_version).toBe(1);
+    expect(body.generated_at).toBe("2026-01-01T00:00:00.000Z");
+    expect(body.aliases).toEqual({ "text-alias": "text" });
   });
 
   test("returns explicitly requested decision models", async () => {
@@ -106,6 +120,7 @@ async function request(path: string) {
         }
         if (pathname === "/_catalog.json") {
           return Response.json({
+            ...catalogMeta,
             providers: {
               example: { ...providers.example, models: { text: textModel } },
             },
@@ -113,10 +128,11 @@ async function request(path: string) {
           });
         }
         if (pathname === "/_catalog-all.json") {
-          return Response.json({ providers, models });
+          return Response.json({ ...catalogMeta, providers, models });
         }
         if (pathname === "/_catalog-decision.json") {
           return Response.json({
+            ...catalogMeta,
             providers: {
               example: { ...providers.example, models: { decision: decisionModel } },
             },

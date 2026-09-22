@@ -47,6 +47,36 @@ Use this for facts about the model itself, independent of where it is served. If
 curl https://models.dev/catalog.json
 ```
 
+### Capability metadata
+
+Models and providers carry structured, evidence-backed capability metadata for
+routers and other downstream applications:
+
+- **tasks** — `text_generation`, `image_generation`, `video_generation`,
+  `transcription`, `speech_synthesis`, `realtime_conversation`, `embeddings`,
+  `reranking`, `evaluation`
+- **inputs** — `text`, `image`, `audio`, `video`, `files` (with media-type
+  `formats` where known)
+- **features** — `reasoning`, `tool_calling`, `structured_output`,
+  `web_search`, `implicit_prompt_caching`, `explicit_prompt_caching`
+- **endpoints** (provider entries only) — `transports` (`http`, `sse`,
+  `websocket`) and `operations` (`chat`, `messages`, `responses`,
+  `completions`, `embeddings`, `images`, `videos`, `transcriptions`, `speech`,
+  `rerank`, `realtime`, `evaluate`)
+
+Each capability is tri-state: `supported`, `unsupported`, or unknown when the
+node is absent. Confirmed and negative declarations must cite an `evidence`
+URL and a `verified_at` date. Provider entries inherit canonical defaults and
+can override any capability, including explicit negatives.
+
+Provider entries expose a resolved `canonical` model ID, and `catalog.json`
+includes an `aliases` map so consumers can resolve alternate IDs without fuzzy
+matching. See [docs/capabilities/contract.md](docs/capabilities/contract.md)
+for the full contract, router recipes (provider override resolution, custom
+models, fallback combos, cached snapshots), and
+[docs/capabilities/coverage.md](docs/capabilities/coverage.md) for current
+coverage and unknown gaps.
+
 ### Logos
 
 Provider logos are available as SVG files:
@@ -309,6 +339,14 @@ Models must conform to the following schema, as defined in `packages/core/src/sc
   - `alpha` - Indicate the model is in alpha testing
   - `beta` - Indicate the model is in beta testing
   - `deprecated` - Indicate the model is no longer served by the provider's public API
+- `capabilities` _(optional)_: Object — Evidence-backed capability metadata (tri-state `status`: `supported`, `unsupported`, or `unknown` when absent):
+  - `capabilities.tasks.<task>` — One of `text_generation`, `image_generation`, `video_generation`, `transcription`, `speech_synthesis`, `realtime_conversation`, `embeddings`, `reranking`, `evaluation`
+  - `capabilities.inputs.<input>` — One of `text`, `image`, `audio`, `video`, `files`; `inputs.files` may list `formats` (media types) when `supported`
+  - `capabilities.features.<feature>` — One of `reasoning`, `tool_calling`, `structured_output`, `web_search`, `implicit_prompt_caching`, `explicit_prompt_caching`
+  - `capabilities.endpoints.transports.{http,sse,websocket}` and `capabilities.endpoints.operations.<operation>` — provider entries only, scoped to the serving endpoint
+  - Each declaration requires `evidence` (URL array) and `verified_at` (`YYYY-MM-DD`) unless `status = "unknown"`
+- `canonical` _(optional, provider models)_: String — Canonical model ID this entry serves; resolved into generated JSON and never used for inheritance
+- `aliases` _(optional)_: String[] — Alternate model IDs; canonical aliases are `<lab>/<model>`, provider aliases are resolved as `<provider>/<alias>`. Emitted in `catalog.json` as an `aliases` map
 
 ### Examples
 

@@ -72,12 +72,35 @@ export function filterModelsByModelType<T extends Record<string, TypedModel>>(
 export function filterCatalogByModelType<
   TProviders extends Record<string, TypedProvider>,
   TModels extends Record<string, TypedModel>,
->(
-  catalog: { providers: TProviders; models: TModels },
-  filter: ModelTypeFilter,
-): { providers: TProviders; models: TModels } {
+  TCatalog extends {
+    providers: TProviders;
+    models: TModels;
+    aliases?: Record<string, string>;
+  },
+>(catalog: TCatalog, filter: ModelTypeFilter): TCatalog {
+  const providers = filterProvidersByModelType(catalog.providers, filter);
+  const models = filterModelsByModelType(catalog.models, filter);
+
+  let aliases = catalog.aliases;
+  if (aliases !== undefined && filter !== "all") {
+    const filteredProviderModels = new Set<string>();
+    for (const [providerID, provider] of Object.entries(providers)) {
+      for (const modelID of Object.keys(provider.models)) {
+        filteredProviderModels.add(`${providerID}/${modelID}`);
+      }
+    }
+    aliases = Object.fromEntries(
+      Object.entries(aliases).filter(
+        ([, target]) =>
+          target in models || filteredProviderModels.has(target),
+      ),
+    );
+  }
+
   return {
-    providers: filterProvidersByModelType(catalog.providers, filter),
-    models: filterModelsByModelType(catalog.models, filter),
+    ...catalog,
+    providers,
+    models,
+    ...(aliases === undefined ? {} : { aliases }),
   };
 }

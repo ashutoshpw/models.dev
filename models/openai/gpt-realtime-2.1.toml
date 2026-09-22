@@ -19,3 +19,48 @@ output = 32_000
 [modalities]
 input = ["text", "audio", "image"]
 output = ["text", "audio"]
+
+[capabilities.tasks.realtime_conversation]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.text_generation]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.speech_synthesis]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.audio]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.features.reasoning]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.features.tool_calling]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/models/gpt-realtime-2.1"]
+verified_at = "2026-09-22"
+
+[capabilities.features.implicit_prompt_caching]
+status = "supported"
+evidence = ["https://platform.openai.com/docs/guides/prompt-caching"]
+verified_at = "2026-09-22"

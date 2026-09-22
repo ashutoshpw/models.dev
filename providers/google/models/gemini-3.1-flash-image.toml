@@ -15,3 +15,13 @@ output = 60
 [limit]
 context = 65_536
 output = 65_536
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/image-generation"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.images]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/image-generation"]
+verified_at = "2026-09-22"

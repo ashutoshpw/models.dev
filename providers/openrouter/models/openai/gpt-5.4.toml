@@ -15,3 +15,18 @@ tier = { type = "context", size = 272_000 }
 input = 5
 output = 22.5
 cache_read = 0.5
+
+[capabilities.endpoints.transports.http]
+status = "supported"
+evidence = ["https://openrouter.ai/docs/api_reference/overview.md"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.transports.sse]
+status = "supported"
+evidence = ["https://openrouter.ai/docs/api_reference/streaming.md"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.chat]
+status = "supported"
+evidence = ["https://openrouter.ai/docs/api/api-reference/chat/create-a-chat-completion.md"]
+verified_at = "2026-09-22"

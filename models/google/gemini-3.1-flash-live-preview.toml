@@ -22,3 +22,43 @@ output = 65_536
 [modalities]
 input = ["text", "image", "video", "audio"]
 output = ["text", "audio"]
+
+[capabilities.tasks.realtime_conversation]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.audio]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.video]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.features.reasoning]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview"]
+verified_at = "2026-09-22"
+
+[capabilities.features.tool_calling]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/live-api/tools"]
+verified_at = "2026-09-22"
+
+[capabilities.features.web_search]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/live-api/tools"]
+verified_at = "2026-09-22"

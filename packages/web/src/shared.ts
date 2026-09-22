@@ -83,6 +83,30 @@ export function capabilitySummary(capabilities: Array<[string, boolean | undefin
   return active.length > 0 ? active.join(", ") : "-";
 }
 
+type CapabilityNodes = Record<string, { status?: string } | undefined>;
+
+export function capabilityStatusText(nodes: CapabilityNodes | undefined) {
+  if (nodes === undefined) return "-";
+
+  const supported: string[] = [];
+  const unsupported: string[] = [];
+  for (const [key, node] of Object.entries(nodes)) {
+    const label = key.replaceAll("_", " ");
+    if (node?.status === "supported") supported.push(label);
+    if (node?.status === "unsupported") unsupported.push(`${label} (unsupported)`);
+  }
+
+  const parts = [...supported, ...unsupported];
+  return parts.length > 0 ? parts.join(", ") : "-";
+}
+
+export function capabilitySearchTokens(nodes: CapabilityNodes | undefined) {
+  if (nodes === undefined) return [] as string[];
+  return Object.entries(nodes)
+    .filter(([, node]) => node?.status !== undefined)
+    .flatMap(([key]) => [key, key.replaceAll("_", " ")]);
+}
+
 export function sortDate(value?: string) {
   return value ?? "";
 }

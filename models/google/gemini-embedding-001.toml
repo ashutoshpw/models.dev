@@ -17,3 +17,13 @@ output = 1
 [modalities]
 input = ["text"]
 output = ["text"]
+
+[capabilities.tasks.embeddings]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/embeddings"]
+verified_at = "2026-09-22"

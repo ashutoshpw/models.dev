@@ -16,3 +16,23 @@ output = 4_096
 [modalities]
 input = ["text", "image"]
 output = ["text"]
+
+[capabilities.tasks.reranking]
+status = "supported"
+evidence = ["https://docs.nvidia.com/nim/nemo-retriever/reranking/latest/overview.html"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.text_generation]
+status = "unsupported"
+evidence = ["https://build.nvidia.com/nvidia/llama-nemotron-rerank-vl-1b-v2"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://docs.nvidia.com/nim/nemo-retriever/reranking/latest/use-the-api-openai.html"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://docs.nvidia.com/nim/nemo-retriever/reranking/latest/use-the-api-openai.html"]
+verified_at = "2026-09-22"

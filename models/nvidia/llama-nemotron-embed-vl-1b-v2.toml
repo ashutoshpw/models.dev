@@ -16,3 +16,23 @@ output = 2_048
 [modalities]
 input = ["text", "image"]
 output = ["text"]
+
+[capabilities.tasks.embeddings]
+status = "supported"
+evidence = ["https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.text_generation]
+status = "unsupported"
+evidence = ["https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2"]
+verified_at = "2026-09-22"

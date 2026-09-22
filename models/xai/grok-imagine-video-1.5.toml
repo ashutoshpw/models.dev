@@ -21,3 +21,18 @@ output = 0
 [modalities]
 input = ["text", "image", "video"]
 output = ["video"]
+
+[capabilities.tasks.video_generation]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/video/generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/video/generation"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://docs.x.ai/developers/model-capabilities/video/generation"]
+verified_at = "2026-09-22"

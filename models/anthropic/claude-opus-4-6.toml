@@ -93,3 +93,59 @@ harness = "Claude Code"
 variant = "medium"
 version = "2.1"
 source = "https://artificialanalysis.ai/agents/coding-agents"
+
+[capabilities.tasks.text_generation]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/models/opus-4-6/overview"]
+verified_at = "2026-09-22"
+
+[capabilities.tasks.image_generation]
+status = "unsupported"
+evidence = ["https://platform.claude.com/docs/en/models/opus-4-6/overview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.text]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/models/opus-4-6/overview"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.image]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/vision"]
+verified_at = "2026-09-22"
+
+[capabilities.inputs.files]
+status = "supported"
+formats = ["application/pdf"]
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/pdf-support"]
+verified_at = "2026-09-22"
+
+[capabilities.features.reasoning]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/thinking"]
+verified_at = "2026-09-22"
+
+[capabilities.features.tool_calling]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/api/messages"]
+verified_at = "2026-09-22"
+
+[capabilities.features.structured_output]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/structured-outputs"]
+verified_at = "2026-09-22"
+
+[capabilities.features.web_search]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool"]
+verified_at = "2026-09-22"
+
+[capabilities.features.implicit_prompt_caching]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/prompt-caching"]
+verified_at = "2026-09-22"
+
+[capabilities.features.explicit_prompt_caching]
+status = "supported"
+evidence = ["https://platform.claude.com/docs/en/build-with-claude/prompt-caching"]
+verified_at = "2026-09-22"

@@ -12,7 +12,7 @@ function sortRecord<T>(record: Record<string, T>): Record<string, T> {
   return Object.fromEntries(Object.entries(record).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
 }
 
-/** Deterministic catalog: provider, per-provider model, and metadata keys sorted. */
+/** Deterministic catalog: provider, per-provider model, metadata, and alias keys sorted. */
 export async function loadCatalog() {
   const catalog = await generateCatalog(root)
   const providers = sortRecord(
@@ -20,12 +20,22 @@ export async function loadCatalog() {
       Object.entries(catalog.providers).map(([id, provider]) => [id, { ...provider, models: sortRecord(provider.models) }]),
     ),
   )
-  return { providers, models: sortRecord(catalog.models) }
+  return {
+    schema_version: catalog.schema_version,
+    generated_at: catalog.generated_at,
+    providers,
+    models: sortRecord(catalog.models),
+    aliases: sortRecord(catalog.aliases),
+  }
 }
 
-/** The exact JSON payload embedded in src/snapshot.js. Used by publish to diff against npm. */
+/**
+ * The exact JSON payload embedded in src/snapshot.js. Used by publish to diff
+ * against npm, so the non-deterministic `generated_at` timestamp is excluded.
+ */
 export function snapshotPayload(catalog: Awaited<ReturnType<typeof loadCatalog>>) {
-  return JSON.stringify(catalog)
+  const { generated_at: _generatedAt, ...deterministic } = catalog
+  return JSON.stringify(deterministic)
 }
 
 function union(values: string[]) {
@@ -52,6 +62,8 @@ ${union(families)}
 const data = /* @__PURE__ */ JSON.parse(${JSON.stringify(snapshotPayload(catalog))})
 export const providers = data.providers
 export const models = data.models
+export const aliases = data.aliases
+export const schemaVersion = data.schema_version
 export const generatedAt = ${JSON.stringify(new Date().toISOString())}
 export default data
 `,

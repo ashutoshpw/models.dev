@@ -124,6 +124,87 @@ export interface ModelWeights {
   quantization?: string
 }
 
+/** Tri-state capability status. Missing capability nodes mean `"unknown"`. */
+export type CapabilityStatus = "supported" | "unsupported" | "unknown"
+
+/** Tasks a model can perform. Separate from output modalities. */
+export type CapabilityTask =
+  | "text_generation"
+  | "image_generation"
+  | "video_generation"
+  | "transcription"
+  | "speech_synthesis"
+  | "realtime_conversation"
+  | "embeddings"
+  | "reranking"
+  | "evaluation"
+
+/** Input kinds a model accepts. */
+export type CapabilityInput = "text" | "image" | "audio" | "video" | "files"
+
+/** Behavioral features a model or endpoint may expose. */
+export type CapabilityFeature =
+  | "reasoning"
+  | "tool_calling"
+  | "structured_output"
+  | "web_search"
+  | "implicit_prompt_caching"
+  | "explicit_prompt_caching"
+
+/** Transports a provider endpoint exposes. */
+export type Transport = "http" | "sse" | "websocket"
+
+/** API operations a provider endpoint exposes. */
+export type Operation =
+  | "chat"
+  | "messages"
+  | "responses"
+  | "completions"
+  | "embeddings"
+  | "images"
+  | "videos"
+  | "transcriptions"
+  | "speech"
+  | "rerank"
+  | "realtime"
+  | "evaluate"
+
+/**
+ * An evidence-backed capability declaration. `supported` and `unsupported`
+ * require at least one evidence URL and a `verified_at` date.
+ */
+export interface Declaration {
+  status: CapabilityStatus
+  /** Source URLs supporting this declaration. */
+  evidence?: string[]
+  /** YYYY-MM-DD date the declaration was last verified. */
+  verified_at?: string
+}
+
+/** A declared input kind, optionally listing accepted media types. */
+export interface InputDeclaration extends Declaration {
+  /** Accepted media types, e.g. "application/pdf". Only with `supported`. */
+  formats?: string[]
+}
+
+/** Model-level capability defaults. Omitted nodes are unknown. */
+export interface Capabilities {
+  tasks?: Partial<Record<CapabilityTask, Declaration>>
+  inputs?: Partial<Record<CapabilityInput, InputDeclaration>>
+  features?: Partial<Record<CapabilityFeature, Declaration>>
+}
+
+/** Provider endpoint capabilities, scoped to the serving host. */
+export interface EndpointCapabilities {
+  transports?: Partial<Record<Transport, Declaration>>
+  operations?: Partial<Record<Operation, Declaration>>
+}
+
+/** Provider capabilities: model-level defaults plus endpoint metadata. */
+export interface ProviderCapabilities extends Capabilities {
+  endpoints?: EndpointCapabilities
+}
+
 /** A reported benchmark result. */
 export interface BenchmarkResult {
   name: string
@@ -174,6 +255,10 @@ export interface ModelMetadata {
   links?: ModelLink[]
   weights?: ModelWeights[]
   benchmarks?: BenchmarkResult[]
+  /** Evidence-backed capability defaults for this model. */
+  capabilities?: Capabilities
+  /** Alternate canonical IDs that resolve to this model. */
+  aliases?: string[]
 }
 
 /** Per-mode overrides for experimental model modes. */
@@ -241,6 +326,12 @@ export interface Model {
   limit: Limit
   /** Lifecycle status; absent means generally available. */
   status?: "alpha" | "beta" | "deprecated"
+  /** Resolved capabilities: canonical defaults merged with provider overrides. */
+  capabilities?: ProviderCapabilities
+  /** Provider-scoped alternate IDs that resolve to this model. */
+  aliases?: string[]
+  /** Canonical model this entry serves, when resolvable. */
+  canonical?: string
   experimental?: ModelExperimental
   provider?: ModelProviderConfig
   /** Absent for models with no published pricing (e.g. subscription-only). */
@@ -276,6 +367,12 @@ export type ModelMetadataMap = Record<string, ModelMetadata>
 
 /** Response of `GET https://models.dev/catalog.json`: providers and model metadata in one payload. */
 export interface Catalog {
+  /** Catalog contract version. Additive changes do not bump this. */
+  schema_version: number
+  /** ISO timestamp of when this catalog payload was generated. */
+  generated_at?: string
   providers: ProviderMap
   models: ModelMetadataMap
+  /** Alias ID to resolved model ID map (canonical and provider scoped). */
+  aliases: Record<string, string>
 }

@@ -8,3 +8,13 @@ reasoning_options = []
 [cost]
 input = 1
 output = 20
+
+[capabilities.endpoints.transports.sse]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/speech-generation"]
+verified_at = "2026-09-22"
+
+[capabilities.endpoints.operations.speech]
+status = "supported"
+evidence = ["https://ai.google.dev/gemini-api/docs/generate-content/speech-generation"]
+verified_at = "2026-09-22"

@@ -43,6 +43,8 @@ Sync runs also write `.sync/model-sync-report.md` for the automation workflow PR
 - Validates translated models with `AuthoredModel` before writing.
 - Formats TOML consistently for all synced providers.
 - Compares authored TOML shapes before writing so existing factored TOMLs stay factored instead of being expanded.
+- Preserves hand-authored capability metadata (`capabilities`, `aliases`, `canonical`) from existing provider TOMLs and canonical metadata files; provider modules never need to produce capability data. Capability trees are deep-merged so partial remote updates do not drop authored declarations. Translated values win when the remote catalog produces them.
+- Emits `capabilities`, `aliases`, and `canonical` through `formatToml()` / `formatMetadataToml()` so preserved data round-trips.
 - Replaces symlinked files safely by removing the symlink before writing.
 - Removes existing files that are no longer present in the desired synced set.
 - Writes `.sync/model-sync-report.md` for GitHub Actions.

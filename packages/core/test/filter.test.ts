@@ -49,6 +49,29 @@ describe("model type filtering", () => {
     expect(filterCatalogByModelType(catalog, "all")).toEqual(catalog);
   });
 
+  test("preserves catalog contract keys and prunes filtered aliases", () => {
+    const catalog = {
+      ...fixture(),
+      schema_version: 1,
+      generated_at: "2026-01-01T00:00:00.000Z",
+      aliases: {
+        "standard-alias": "standard",
+        "decision-alias": "decision",
+        "example/standard": "example/standard",
+      },
+    };
+
+    const filtered = filterCatalogByModelType(catalog, "default");
+
+    expect(filtered.schema_version).toBe(1);
+    expect(filtered.generated_at).toBe("2026-01-01T00:00:00.000Z");
+    const expectedAliases: Record<string, string> = {
+      "standard-alias": "standard",
+      "example/standard": "example/standard",
+    };
+    expect(filtered.aliases as Record<string, string>).toEqual(expectedAliases);
+  });
+
   test("every repository Jev model inherits decision and is omitted by default", async () => {
     const root = path.join(import.meta.dir, "..", "..", "..");
     const catalog = await generateCatalog(root);

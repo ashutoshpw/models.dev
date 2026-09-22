@@ -5167,3 +5167,92 @@ test("rejects synced model paths that differ only in case", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("sync preserves authored capabilities, aliases, and canonical references", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "sync-capabilities-"));
+  const modelsDir = path.join(root, "providers", "example", "models");
+  const modelPath = path.join(modelsDir, "model.toml");
+  await mkdir(modelsDir, { recursive: true });
+  await Bun.write(modelPath, [
+    'name = "Example Model"',
+    'description = "Example model for capability preservation"',
+    'release_date = "2026-01-01"',
+    'last_updated = "2026-01-01"',
+    "attachment = false",
+    "reasoning = false",
+    "tool_call = false",
+    "open_weights = false",
+    'aliases = ["model-latest"]',
+    'canonical = "lab/model"',
+    "",
+    "[limit]",
+    "context = 1_000",
+    "output = 100",
+    "",
+    "[modalities]",
+    'input = ["text"]',
+    'output = ["text"]',
+    "",
+    "[capabilities.tasks.text_generation]",
+    'status = "supported"',
+    'evidence = ["https://example.com/docs"]',
+    'verified_at = "2026-01-01"',
+    "",
+    "[capabilities.features.web_search]",
+    'status = "unknown"',
+    "",
+    "[capabilities.endpoints.operations.chat]",
+    'status = "supported"',
+    'evidence = ["https://example.com/docs/chat"]',
+    'verified_at = "2026-01-02"',
+    "",
+  ].join("\n"));
+
+  const provider: SyncProvider<{ id: string }> = {
+    id: "example",
+    name: "Example",
+    modelsDir,
+    async fetchModels() {
+      return [{ id: "model" }];
+    },
+    parseModels(raw) {
+      return raw as Array<{ id: string }>;
+    },
+    translateModel(source) {
+      return {
+        id: source.id,
+        model: {
+          name: "Example Model",
+          description: "Example model for capability preservation",
+          release_date: "2026-01-01",
+          last_updated: "2026-01-02",
+          attachment: false,
+          reasoning: false,
+          tool_call: false,
+          open_weights: false,
+          limit: { context: 1_000, output: 100 },
+          modalities: { input: ["text"], output: ["text"] },
+        },
+      };
+    },
+  };
+
+  try {
+    await syncProvider(provider);
+
+    const content = await readFile(modelPath, "utf8");
+    expect(content).toContain('aliases = ["model-latest"]');
+    expect(content).toContain('canonical = "lab/model"');
+    expect(content).toContain("[capabilities.tasks.text_generation]");
+    expect(content).toContain('evidence = ["https://example.com/docs"]');
+    expect(content).toContain("[capabilities.features.web_search]");
+    expect(content).toContain('status = "unknown"');
+    expect(content).toContain("[capabilities.endpoints.operations.chat]");
+    expect(content).toContain('last_updated = "2026-01-02"');
+
+    await syncProvider(provider);
+    expect(await readFile(modelPath, "utf8")).toBe(content);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

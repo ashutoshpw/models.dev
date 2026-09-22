@@ -10,9 +10,9 @@ import type { ModelTypeValue } from "@models.dev/core/src/filter.js";
 
 export interface Env {
   ASSETS: any;
-  PosthogToken: string;
-  LakeUrl: string;
-  LakeSecret: string;
+  PosthogToken?: string;
+  LakeUrl?: string;
+  LakeSecret?: string;
 }
 
 export default {
@@ -26,7 +26,12 @@ export default {
     const country = request.headers.get("cf-ipcountry") ?? undefined;
     const agent = request.headers.get("user-agent") ?? undefined;
     const time = new Date().toISOString();
-    if (agent?.includes("opencode") || agent?.includes("bun")) {
+    if (
+      (agent?.includes("opencode") || agent?.includes("bun")) &&
+      env.PosthogToken &&
+      env.LakeUrl &&
+      env.LakeSecret
+    ) {
       ctx.waitUntil(
         fetch("https://us.i.posthog.com/i/v0/e/", {
           method: "POST",

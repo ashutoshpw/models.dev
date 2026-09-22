@@ -115,9 +115,9 @@ const LAB_NAME_OVERRIDES: Record<string, string> = {
 };
 
 const DEFAULT_PAGE_METADATA: PageMetadata = {
-  title: "Models.dev - An open-source database of AI models",
+  title: "AIStack models.dev - An open-source database of AI models",
   description:
-    "Models.dev is a comprehensive open-source database of AI model specifications, pricing, and features.",
+    "AIStack models.dev is a comprehensive open-source database of AI model specifications, pricing, and features.",
 };
 
 const ModelEntries = buildModelEntries();
@@ -487,7 +487,7 @@ function renderPage(
 function modelPageMetadata(model: ModelEntry): PageMetadata {
   const metadata = model.metadata;
   const providerCount = model.providers.length;
-  const title = `${metadata.name} pricing, providers, and specs | Models.dev`;
+  const title = `${metadata.name} pricing, providers, and specs | AIStack models.dev`;
   const context = metadata.limit?.context
     ? `${formatNumber(metadata.limit.context)} token context`
     : undefined;
@@ -525,7 +525,7 @@ function providerPageMetadata(
   provider: CatalogProvider,
   models: ProviderModelEntry[],
 ): PageMetadata {
-  const title = `${provider.name} models, pricing, and API docs | Models.dev`;
+  const title = `${provider.name} models, pricing, and API docs | AIStack models.dev`;
   const labs = new Set<string>();
   for (const entry of models) {
     if (entry.canonical?.labName) labs.add(entry.canonical.labName);
@@ -539,7 +539,7 @@ function providerPageMetadata(
         : undefined;
   const description = compactMetadataDescription(
     [
-      `Browse ${plural(models.length, `${provider.name} model`)} on Models.dev.`,
+      `Browse ${plural(models.length, `${provider.name} model`)} on AIStack models.dev.`,
       factSentence([
         labSummary,
         `pricing`,
@@ -557,7 +557,7 @@ function providerPageMetadata(
 }
 
 function labPageMetadata(lab: LabEntry): PageMetadata {
-  const title = `${lab.name} models, providers, and specs | Models.dev`;
+  const title = `${lab.name} models, providers, and specs | AIStack models.dev`;
   const description = compactMetadataDescription(
     [
       lab.description,
@@ -625,7 +625,7 @@ function Header(props: { active: ActiveSection }) {
     <header>
       <div class="left">
         <a class="brand" href="/">
-          <h1>Models.dev</h1>
+          <h1>AIStack models.dev</h1>
         </a>
         <span class="slash"></span>
         <p>An open-source database of AI models</p>
@@ -649,7 +649,7 @@ function Header(props: { active: ActiveSection }) {
           class="github"
           target="_blank"
           rel="noopener noreferrer"
-          href="https://github.com/sst/models.dev"
+          href="https://github.com/ashutoshpw/models.dev"
           aria-label="GitHub"
         >
           <svg
@@ -1423,7 +1423,7 @@ function MobileMenu(props: { active: "models" | "providers" | "labs" }) {
         <a
           target="_blank"
           rel="noopener noreferrer"
-          href="https://github.com/sst/models.dev"
+          href="https://github.com/ashutoshpw/models.dev"
         >
           GitHub
         </a>
@@ -1519,8 +1519,8 @@ function HelpDialog() {
       </div>
       <div class="body">
         <p>
-          <a href="/">Models.dev</a> is a comprehensive open-source database of
-          AI model specifications, pricing, and features.
+          <a href="/">AIStack models.dev</a> is a comprehensive open-source
+          database of AI model specifications, pricing, and features.
         </p>
         <p>
           The homepage starts with provider-agnostic model metadata. Model pages
@@ -1536,17 +1536,17 @@ function HelpDialog() {
         </p>
         <div class="code-block">
           <code>
-            curl <a href="/api.json?type=all">https://models.dev/api.json?type=all</a>
+            curl <a href="/api.json?type=all">https://models.aistack.run/api.json?type=all</a>
           </code>
         </div>
         <div class="code-block">
           <code>
-            curl <a href="/models.json?type=all">https://models.dev/models.json?type=all</a>
+            curl <a href="/models.json?type=all">https://models.aistack.run/models.json?type=all</a>
           </code>
         </div>
         <div class="code-block">
           <code>
-            curl <a href="/catalog.json?type=all">https://models.dev/catalog.json?type=all</a>
+            curl <a href="/catalog.json?type=all">https://models.aistack.run/catalog.json?type=all</a>
           </code>
         </div>
         <h2>Logos</h2>
@@ -1559,7 +1559,7 @@ function HelpDialog() {
           <code>
             curl{" "}
             <a href="/logos/anthropic.svg">
-              https://models.dev/logos/anthropic.svg
+              https://models.aistack.run/logos/anthropic.svg
             </a>
           </code>
         </div>
@@ -1580,7 +1580,7 @@ function HelpDialog() {
         <p>
           The data is stored in{" "}
           <a
-            href="https://github.com/anomalyco/models.dev"
+            href="https://github.com/ashutoshpw/models.dev"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -1591,7 +1591,7 @@ function HelpDialog() {
       </div>
       <div class="footer">
         <a
-          href="https://github.com/sst/models.dev"
+          href="https://github.com/ashutoshpw/models.dev"
           target="_blank"
           rel="noopener noreferrer"
         >
